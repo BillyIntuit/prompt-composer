@@ -1,0 +1,44 @@
+{
+  "name": "prompt-composer",
+  "version": "1.0.0",
+  "description": "Desktop prompt composition workspace for Claude Code",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "dev:electron": "NODE_ENV=development electron .",
+    "build": "vite build",
+    "package:mac": "npm run build && electron-builder --mac",
+    "package:win": "npm run build && electron-builder --win"
+  },
+  "build": {
+    "appId": "com.design-team.prompt-composer",
+    "productName": "Prompt Composer",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron/**/*",
+      "build/**/*"
+    ],
+    "extraResources": [],
+    "mac": {
+      "icon": "build/icon.png",
+      "target": "dmg"
+    },
+    "win": {
+      "icon": "build/icon.png",
+      "target": "nsis"
+    }
+  },
+  "dependencies": {
+    "electron-store": "^11.0.2",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.0.1",
+    "electron": "^41.1.1",
+    "electron-builder": "^26.8.1",
+    "vite": "^8.0.3"
+  }
+}

@@ -511,6 +511,16 @@ export default function PromptComposerV4() {
       )
     : figmaLinks;
 
+  // Grouped dataviz presets (static data, compute once)
+  const datavizGroups = useMemo(() => {
+    const groups = {};
+    for (const p of DATAVIZ_PRESETS) {
+      if (!groups[p.group]) groups[p.group] = [];
+      groups[p.group].push(p);
+    }
+    return Object.entries(groups);
+  }, []);
+
   // Close popover on outside click
   useEffect(() => {
     const handler = (e) => {
@@ -628,13 +638,7 @@ export default function PromptComposerV4() {
             <div><div style={{ fontSize:15, fontWeight:600, marginBottom:4 }}>◈ Butterscotch Data Viz Presets</div><div style={{ fontSize:11, color:"#777", maxWidth:600 }}>Pick a widget type and grid size. Each preset references both the layout spec and features spec from Figma.</div></div>
             <button onClick={() => setShowDataViz(false)} style={{ background:"none",border:"none",color:"#444",fontSize:18,cursor:"pointer" }}>×</button>
           </div>
-          {(() => {
-            const groups = {};
-            for (const p of DATAVIZ_PRESETS) {
-              if (!groups[p.group]) groups[p.group] = [];
-              groups[p.group].push(p);
-            }
-            return Object.entries(groups).map(([groupLabel, presets]) => (
+          {datavizGroups.map(([groupLabel, presets]) => (
               <div key={groupLabel} style={{ marginBottom:16 }}>
                 <div style={{ fontSize:10, ...mono, color:"#F4A024", letterSpacing:"0.04em", marginBottom:6, textTransform:"uppercase" }}>{groupLabel}</div>
                 <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))", gap:8 }}>
@@ -650,8 +654,7 @@ export default function PromptComposerV4() {
                   ))}
                 </div>
               </div>
-            ));
-          })()}
+            ))}
         </div>
       )}
 
@@ -858,7 +861,10 @@ export default function PromptComposerV4() {
                             {selectingFor && selectingFor.kind==="figma" ? (
                               <span style={{ fontSize:10, color:accent, ...mono }}>← Use this</span>
                             ) : (
-                              <button onClick={(e) => { e.stopPropagation(); saveLibraryLinkToMyLinks(link); }} style={{ ...S.chip, color:"#555", fontSize:9 }}>★ Save</button>
+                              <div style={{ display:"flex", gap:3 }}>
+                                <button onClick={(e) => { e.stopPropagation(); saveLibraryLinkToMyLinks(link); }} style={{ ...S.chip, color:"#555", fontSize:9 }}>★ Save</button>
+                                <button onClick={(e) => { e.stopPropagation(); copy(link.url, link.id); }} style={{ ...S.chip, color:copiedId===link.id?accent:"#555", fontSize:9 }}>{copiedId===link.id?"✓":"⎘"}</button>
+                              </div>
                             )}
                           </div>
                           <div style={{ fontSize:8, color:"#333", ...mono }}>{link.groupLabel}</div>

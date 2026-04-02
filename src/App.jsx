@@ -256,7 +256,7 @@ export default function PromptComposerV4() {
   // Preset creation
   const [showCreate, setShowCreate] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [draft, setDraft] = useState({ label:"", icon:"◇", category:"Custom", template:"" });
+  const [draft, setDraft] = useState({ label:"", icon:"star", category:"Custom", template:"" });
 
   // Add link/file
   const [addingLink, setAddingLink] = useState(false);
@@ -519,7 +519,7 @@ export default function PromptComposerV4() {
     if (editingId) { setPresets(p => p.map(x => x.id===editingId?{...x,...draft,custom:true}:x)); }
     else { setPresets(p => [...p, { ...draft, id:"c-"+Date.now(), custom:true, phase:"apply" }]); }
     showToast(editingId?"Updated":"Created");
-    setDraft({ label:"", icon:"◇", category:"Custom", template:"" }); setShowCreate(false); setEditingId(null);
+    setDraft({ label:"", icon:"star", category:"Custom", template:"" }); setShowCreate(false); setEditingId(null);
   };
 
   // ── Add figma/file ──
@@ -816,7 +816,7 @@ export default function PromptComposerV4() {
                 </div>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
                   <span style={{ fontSize:9, color:"#333", ...mono }}>{filtered.length} presets</span>
-                  <button onClick={() => { setShowCreate(true); setEditingId(null); setDraft({ label:"",icon:"◇",category:"Custom",template:"" }); }} style={S.sBtn(false)}>+ Create</button>
+                  <button onClick={() => { setShowCreate(true); setEditingId(null); setDraft({ label:"",icon:"star",category:"Custom",template:"" }); }} style={S.sBtn(false)}>+ Create</button>
                 </div>
                 <div style={{ display:"flex", flexWrap:"wrap", gap:3, marginBottom:10 }}>
                   {allCats.map(c => <button key={c} onClick={() => setActiveCategory(c)} style={{ padding:"2px 8px", borderRadius:4, fontSize:9, cursor:"pointer", ...mono, background:activeCategory===c?accent:"#171717", color:activeCategory===c?"#0A0A0A":"#555", border:`1px solid ${activeCategory===c?accent:"#1C1C1C"}` }}>{c}</button>)}
@@ -1313,7 +1313,7 @@ export default function PromptComposerV4() {
             { q:"What if I want to paste a Figma link that's not saved?", a:"When in selection mode (after clicking a chip), there's an input field at the top of the sidebar that says 'Or paste a new Figma URL...' — paste your link there and click 'Use'. Check the 'Also save to library' checkbox if you want to keep it for next time.", tags:["paste","new link","not saved","unsaved","fresh","direct","new url"] },
           ]},
           { cat:"figma", title:"Figma Links & Files", items:[
-            { q:"How do I get a Figma link?", a:"In Figma:\n\n1. Click on the frame or component you want to reference\n2. Right-click → 'Copy link to selection'\n   OR press Ctrl+L (Cmd+L on Mac)\n3. Come back here, go to the Figma panel (◈ tab), click '+ Add'\n4. Paste the URL and give it a label like 'Hero Section' or 'Button Component'\n\nThe link contains a 'node-id' that tells Claude Code exactly which frame to look at.", tags:["figma","link","url","how","get","copy","frame","find"] },
+            { q:"How do I get a Figma link?", a:"In Figma:\n\n1. Click on the frame or component you want to reference\n2. Right-click → 'Copy link to selection'\n   OR press Ctrl+L (Cmd+L on Mac)\n3. Come back here, go to the Figma tab, click '+ Add'\n4. Paste the URL and give it a label like 'Hero Section' or 'Button Component'\n\nThe link contains a 'node-id' that tells Claude Code exactly which frame to look at.", tags:["figma","link","url","how","get","copy","frame","find"] },
             { q:"Why should I save Figma links instead of pasting every time?", a:"Because you'll use the same frames over and over. When you're tweaking a component, you might reference the same Figma design 5-10 times across different prompts. Saving it once means one click to insert it instead of switching to Figma, finding the frame, copying the link, and coming back.", tags:["save","why","reuse","multiple","again","repeat","library"] },
             { q:"What's the TARGET chip and how is it different from FILE_PATH?", a:"TARGET is a flexible placeholder that accepts EITHER a file path (like src/components/Button.tsx) OR a plain English description (like 'the primary button component'). Claude Code can use either to find the right files.\n\nFILE_PATH still works and is for when you know the exact file path. TARGET is better when you're not sure — just describe what you want changed and Claude Code will find it.\n\nWhen you click a TARGET chip, the Targets panel opens. You can save both file paths and descriptions there.", tags:["target","file path","path","find","where","location","what","how","file","description","difference"] },
             { q:"What does 'recently used' mean for Figma links?", a:"Figma links are sorted by when you last used them. The ones you inserted most recently appear at the top. This way, when you're actively working on a specific component, its links are always right there without scrolling.", tags:["recent","sort","order","top","last used"] },
@@ -1336,7 +1336,7 @@ export default function PromptComposerV4() {
             { q:"Claude Code changed things I didn't want it to change", a:"Add the 'Style-only guard' quick-insert to your prompt. It adds: 'Do NOT change any functionality — only adjust visual styling.'\n\nYou can also be specific: 'Only modify Button.tsx — do not touch any other files' or 'Do not change the component's props or API.'\n\nThe more boundaries you set in the prompt, the less Claude Code will wander.", tags:["changed too much","unexpected","broke","broken","unwanted","wrong file","other files","too many changes"] },
             { q:"My prompt is really long. Is that okay?", a:"Yes. Longer, more detailed prompts usually get better results. Claude Code handles long instructions well. The presets are already structured with clear steps, and adding specifics only helps.\n\nIf your prompt is very long (500+ words), just make sure the most important instructions are near the top and bottom, as those get the most attention.", tags:["long","too long","length","words","big","large","verbose"] },
             { q:"How do I know which file path to use?", a:"Ask a developer or check your project structure. As a general guide:\n\n• Look for folders named 'components', 'styles', 'pages', or 'views'\n• Component files usually match the UI element name: Button.tsx, Card.tsx, Header.tsx\n• Style files are often .css, .scss, or .module.css\n• Token files might be called tokens.css, variables.css, or theme.ts\n\nWhen in doubt, describe the component in your prompt and Claude Code can often find the right file itself.", tags:["file","path","which","find","don't know","where","unsure","what file"] },
-            { q:"I clicked a chip but nothing happened", a:"Make sure you're looking at the left sidebar. When you click a chip:\n\n1. The sidebar should switch to the Figma or Files tab\n2. A green banner appears at the top of the sidebar saying 'Select a...' \n3. Click one of the saved items, or type a new value in the input\n\nIf the sidebar didn't switch, try clicking the chip again. If you want to cancel, click '✕ Cancel selection' in the sidebar banner.", tags:["chip","click","nothing","didn't work","broken","not working","stuck","bug"] },
+            { q:"I clicked a chip but nothing happened", a:"Make sure you're looking at the left sidebar. When you click a chip:\n\n1. The sidebar should switch to the Figma or Files tab\n2. A green banner appears at the top of the sidebar saying 'Select a...' \n3. Click one of the saved items, or type a new value in the input\n\nIf the sidebar didn't switch, try clicking the chip again. If you want to cancel, click 'Cancel selection' in the sidebar banner.", tags:["chip","click","nothing","didn't work","broken","not working","stuck","bug"] },
             { q:"I want to undo filling a chip", a:"Click the green (filled) chip. A popup appears — click 'Unlink' to turn it back into an empty amber chip. You can then fill it with something different.", tags:["undo","unfill","revert","go back","remove","clear chip","empty"] },
           ]},
           { cat:"ids-library", title:"IDS Design System Library", items: IDS_HELP_ITEMS.map(i => ({ ...i, tags: i.tags })) },
@@ -1436,7 +1436,7 @@ export default function PromptComposerV4() {
             <div style={{ flex:1, overflowY:"auto", padding:"16px 28px 40px" }}>
               {filteredItems.length === 0 && (
                 <div style={{ textAlign:"center", padding:"60px 20px" }}>
-                  <div style={{ fontSize:32, marginBottom:12 }}>🔍</div>
+                  <div style={{ marginBottom:12 }}><IdsIcon name="search" size={32} color="#444" /></div>
                   <div style={{ fontSize:15, fontWeight:500, marginBottom:8 }}>No results for "{helpSearch}"</div>
                   <div style={{ fontSize:13, color:"#555" }}>Try different words — for example, "how to fill a chip" or "colors not matching"</div>
                 </div>

@@ -1,11 +1,12 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { IDS_LINK_LIBRARY, getAllLibraryLinks, IDS_COMPONENT_PRESETS, DATAVIZ_PRESETS, IDS_HELP_ITEMS } from "./idsData";
+import IdsIcon, { ICON_NAMES } from "./IdsIcon";
 
 /* ═══════════════════════════════════════════════
    DATA
    ═══════════════════════════════════════════════ */
 const DEFAULT_PRESETS = [
-  { id:"match-layout", label:"Match Layout", icon:"⊞", category:"Apply", phase:"apply", custom:false,
+  { id:"match-layout", label:"Match Layout", icon:"grid-tile", category:"Apply", phase:"apply", custom:false,
     template:`Match the layout and spacing of this Figma frame in the implementation.
 
 STEP 1 — SCREENSHOT THE DESIGN:
@@ -27,7 +28,7 @@ STEP 4 — SELF-CHECK:
 After making changes, screenshot the running implementation and compare it side-by-side with the Figma screenshot. List any remaining differences.
 
 Do NOT change colors, typography, or functionality — only layout and spacing.` },
-  { id:"fix-typo", label:"Fix Typography", icon:"Aa", category:"Apply", phase:"apply", custom:false,
+  { id:"fix-typo", label:"Fix Typography", icon:"editor-text-bold", category:"Apply", phase:"apply", custom:false,
     template:`The typography doesn't match the design.
 
 STEP 1 — SCREENSHOT:
@@ -48,7 +49,7 @@ STEP 4 — SELF-CHECK:
 Screenshot implementation and compare text rendering against Figma.
 
 Only change typography — not layout, spacing, or functionality.` },
-  { id:"colors", label:"Correct Colors", icon:"◉", category:"Apply", phase:"apply", custom:false,
+  { id:"colors", label:"Correct Colors", icon:"eyedropper", category:"Apply", phase:"apply", custom:false,
     template:`Fix the color palette to match the design.
 
 STEP 1 — SCREENSHOT:
@@ -64,7 +65,7 @@ Target: {{TARGET}}
 
 STEP 4 — SELF-CHECK:
 Screenshot and compare. Only change colors.` },
-  { id:"style-comp", label:"Style Component", icon:"❖", category:"Apply", phase:"apply", custom:false,
+  { id:"style-comp", label:"Style Component", icon:"integration-puzzle", category:"Apply", phase:"apply", custom:false,
     template:`Restyle this component to match design spec.
 
 STEP 1 — SCREENSHOT:
@@ -83,7 +84,7 @@ STEP 4 — SELF-CHECK:
 Screenshot every state (default, hover, focus, active, disabled) and compare.
 
 Do NOT change props, API, or behavior — only visual styling.` },
-  { id:"responsive", label:"Responsive Fix", icon:"⊟", category:"Apply", phase:"apply", custom:false,
+  { id:"responsive", label:"Responsive Fix", icon:"all-devices", category:"Apply", phase:"apply", custom:false,
     template:`Fix responsive behavior at smaller viewports.
 
 STEP 1 — SCREENSHOT mobile design:
@@ -98,7 +99,7 @@ Target: {{TARGET}}
 Fix breakpoints at 768px and 375px. Touch targets ≥44px. No overflow.
 
 STEP 4 — SELF-CHECK at 375px and 768px widths.` },
-  { id:"motion", label:"Add Motion", icon:"◎", category:"Apply", phase:"apply", custom:false,
+  { id:"motion", label:"Add Motion", icon:"play", category:"Apply", phase:"apply", custom:false,
     template:`Add transitions and animations.
 
 REFERENCE: {{FIGMA_LINK}}
@@ -106,7 +107,7 @@ Target: {{TARGET}}
 (This can be a file path like src/components/Button.tsx OR a description like "the primary button component" — find the relevant files and update them.)
 
 Use transform/opacity only. Duration 150-300ms. Add prefers-reduced-motion.` },
-  { id:"visual-qa", label:"Visual QA Audit", icon:"⊿", category:"Review", phase:"review", custom:false,
+  { id:"visual-qa", label:"Visual QA Audit", icon:"checklist", category:"Review", phase:"review", custom:false,
     template:`Thorough visual comparison between implementation and design.
 
 STEP 1 — SCREENSHOT BOTH:
@@ -118,7 +119,7 @@ STEP 2 — COMPARE everything: layout, typography, colors, radius, states.
 STEP 3 — REPORT (do NOT fix):
 | Element | Current | Expected | File:Line | CSS Fix |
 Sort by severity: Critical → Moderate → Minor.` },
-  { id:"correction", label:"Targeted Correction", icon:"✎", category:"Review", phase:"review", custom:false,
+  { id:"correction", label:"Targeted Correction", icon:"edit", category:"Review", phase:"review", custom:false,
     template:`Previous changes need specific corrections.
 
 DESIGN: {{FIGMA_LINK}}
@@ -129,7 +130,7 @@ WHAT'S STILL WRONG:
 
 For each: screenshot current state → read Figma values → fix → screenshot to verify.
 Only touch the specific things listed.` },
-  { id:"token-audit", label:"Token Audit", icon:"⚑", category:"Review", phase:"review", custom:false,
+  { id:"token-audit", label:"Token Audit", icon:"flag", category:"Review", phase:"review", custom:false,
     template:`Audit for hardcoded values that should use design tokens.
 
 Target: {{TARGET}}
@@ -140,25 +141,32 @@ Ask before replacing.` },
 ];
 
 const IES_STEPS = [
-  { id:"ies-1", label:"1. Tokens & Colors", icon:"◉", cat:"DS",
+  { id:"ies-1", label:"1. Tokens & Colors", icon:"eyedropper", cat:"DS",
     template:`Adopt IES design tokens.\n\nSCREENSHOT token reference: use get_screenshot on:\n{{FIGMA_LINK}}\n\nEXTRACT all color tokens via get_design_context: primitives + semantic aliases.\n\nCREATE/UPDATE token file: {{TARGET}}\n\nREPLACE all hardcoded colors codebase-wide with tokens.\n\nSELF-CHECK: screenshot 3 key screens before/after.` },
-  { id:"ies-2", label:"2. Typography Scale", icon:"Aa", cat:"DS",
+  { id:"ies-2", label:"2. Typography Scale", icon:"editor-text-bold", cat:"DS",
     template:`Adopt IES type scale.\n\nSCREENSHOT: {{FIGMA_LINK}}\nREAD via get_design_context: families, weights, sizes, line-heights, letter-spacing.\n\nSET UP in: {{TARGET}}\nAdd @font-face, create type tokens, map semantic roles.\n\nAPPLY across codebase. Check for overflow/truncation.\nSELF-CHECK: screenshot key pages.` },
-  { id:"ies-3", label:"3. Spacing & Radius", icon:"⤢", cat:"DS",
+  { id:"ies-3", label:"3. Spacing & Radius", icon:"ruler-pencil", cat:"DS",
     template:`Adopt IES spacing, radius, elevation.\n\nREFERENCE: {{FIGMA_LINK}}\nTOKEN FILE: {{TARGET}}\n\nExtract spacing scale, radius scale, elevation scale.\nCreate tokens. Replace all hardcoded values.\nFlag anything that doesn't map cleanly.\n\nSELF-CHECK: screenshot cards, buttons, inputs.` },
-  { id:"ies-4", label:"4. Component — [Name]", icon:"❖", cat:"DS",
+  { id:"ies-4", label:"4. Component — [Name]", icon:"integration-puzzle", cat:"DS",
     template:`Restyle ONE component to IES specs. Run per-component.\n\nCOMPONENT: [Button / Input / Card / etc.]\n\nSCREENSHOT: {{FIGMA_LINK}}\nREAD full spec via get_design_context.\n\nRESTYLE: {{TARGET}}\nUse ONLY IES tokens. Cover every state.\n\nSELF-CHECK: screenshot all states and compare.` },
-  { id:"ies-5a", label:"5a. Icons — Inventory", icon:"✦", cat:"DS",
+  { id:"ies-5a", label:"5a. Icons — Inventory", icon:"dots-nine", cat:"DS",
     template:`Scan IES icon library — DO NOT change anything.\n\nSCREENSHOT icon frame: {{FIGMA_LINK}}\nENUMERATE via get_design_context: names, sizes, variants.\n\nCROSS-REFERENCE with codebase usage.\nREPORT: available, used, matched, missing.` },
-  { id:"ies-5b", label:"5b. Icons — Export", icon:"✦", cat:"DS",
+  { id:"ies-5b", label:"5b. Icons — Export", icon:"dots-nine", cat:"DS",
     template:`Export IES icons and set up icon system.\n\nFIGMA FRAME: {{FIGMA_LINK}}\nLOCAL DIR: {{TARGET}}\n\nExport SVGs via Figma MCP. Save as icon-name.svg.\nCreate Icon component (sizes: 16,20,24,32; currentColor).\nReplace all existing icon implementations.\n\nSELF-CHECK: screenshot page with icons.` },
-  { id:"ies-6", label:"6. Motion System", icon:"◎", cat:"DS",
+  { id:"ies-6", label:"6. Motion System", icon:"play", cat:"DS",
     template:`Adopt IES motion.\n\nREFERENCE: {{FIGMA_LINK}}\nTOKEN FILE: {{TARGET}}\n\nExtract durations + easings. Create motion tokens.\nApply to all interactive elements.\nAdd prefers-reduced-motion.\n\nSELF-CHECK: interact with every animated element.` },
-  { id:"ies-7", label:"7. Final Audit", icon:"⊿", cat:"DS",
+  { id:"ies-7", label:"7. Final Audit", icon:"checklist", cat:"DS",
     template:`Full DS compliance audit.\n\nREFERENCE: {{FIGMA_LINK}}\n\nScreenshot every screen vs Figma.\nSearch for hardcoded values.\nVerify component states.\nCheck a11y: contrast, focus, touch targets.\n\nREPORT only — do NOT fix.` },
 ];
 
-const ICON_OPTS = ["⊞","Aa","◉","⊿","⤢","⊟","❖","◎","✦","▢","◆","◇","⬡","✎","⚑","●","△","☰","⚙","♦"];
+const ICON_OPTS = [
+  "grid-tile","editor-text-bold","eyedropper","integration-puzzle","all-devices",
+  "play","checklist","edit","flag","ruler-pencil","dots-nine","diamond","chart-pie",
+  "star","lightning","search","settings","paintbrush","image","document","bookmark",
+  "tag","hexagon","circle-check","circle-info","circle-exclamation","copy",
+  "globe-spindle","rocket","lightbulb","tools","atom","growth","magic-wand",
+  "browser-window",
+];
 const CAT_OPTS = ["Apply","Review","Layout","Typography","Color","Component","Motion","Custom"];
 
 const SKILLS = [
@@ -591,16 +599,16 @@ export default function PromptComposerV4() {
       {/* ─── HEADER ─── */}
       <div style={{ padding:"12px 20px", borderBottom:"1px solid #181818", display:"flex", alignItems:"center", justifyContent:"space-between", background:"#0C0C0C" }}>
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <div style={{ width:30, height:30, borderRadius:8, background:`linear-gradient(135deg,${accent},#8BBF3A)`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:15, fontWeight:700, color:"#0A0A0A" }}>⌘</div>
+          <div style={{ width:30, height:30, borderRadius:8, background:`linear-gradient(135deg,${accent},#8BBF3A)`, display:"flex", alignItems:"center", justifyContent:"center", }}><IdsIcon name="logo" size={16} color="#0A0A0A" /></div>
           <div>
             <div style={{ fontSize:13, fontWeight:600, letterSpacing:"-0.02em" }}>Prompt Composer</div>
             <div style={{ fontSize:9, color:"#444", ...mono }}>Apply → Review → Correct</div>
           </div>
         </div>
         <div style={{ display:"flex", gap:6 }}>
-          <button onClick={() => { setShowDS(!showDS); setShowSkills(false); setShowIDSComponents(false); setShowDataViz(false); }} style={S.sBtn(showDS)}>◆ IES Pack</button>
-          <button onClick={() => { setShowIDSComponents(!showIDSComponents); setShowDS(false); setShowSkills(false); setShowDataViz(false); }} style={S.sBtn(showIDSComponents)}>❖ IDS Components</button>
-          <button onClick={() => { setShowDataViz(!showDataViz); setShowDS(false); setShowSkills(false); setShowIDSComponents(false); }} style={S.sBtn(showDataViz)}>◈ Data Viz</button>
+          <button onClick={() => { setShowDS(!showDS); setShowSkills(false); setShowIDSComponents(false); setShowDataViz(false); }} style={S.sBtn(showDS)}><IdsIcon name="diamond" size={14} style={{ marginRight:4 }} /> IES Pack</button>
+          <button onClick={() => { setShowIDSComponents(!showIDSComponents); setShowDS(false); setShowSkills(false); setShowDataViz(false); }} style={S.sBtn(showIDSComponents)}><IdsIcon name="integration-puzzle" size={14} style={{ marginRight:4 }} /> IDS Components</button>
+          <button onClick={() => { setShowDataViz(!showDataViz); setShowDS(false); setShowSkills(false); setShowIDSComponents(false); }} style={S.sBtn(showDataViz)}><IdsIcon name="chart-pie" size={14} style={{ marginRight:4 }} /> Data Viz</button>
           <button onClick={() => { setShowSkills(!showSkills); setShowDS(false); setShowIDSComponents(false); setShowDataViz(false); }} style={S.sBtn(showSkills)}>Skills</button>
           <button onClick={() => setShowHelp(true)} style={{
             width:32, height:32, borderRadius:8, display:"flex", alignItems:"center", justifyContent:"center",
@@ -609,7 +617,7 @@ export default function PromptComposerV4() {
           }}
           onMouseEnter={e => { e.currentTarget.style.background = "#222"; e.currentTarget.style.color = accent; e.currentTarget.style.borderColor = accent; }}
           onMouseLeave={e => { e.currentTarget.style.background = "#1A1A1A"; e.currentTarget.style.color = "#888"; e.currentTarget.style.borderColor = "#2A2A2A"; }}
-          title="Help & How-to Guide">?</button>
+          title="Help & How-to Guide"><IdsIcon name="question" size={16} /></button>
         </div>
       </div>
 
@@ -617,8 +625,8 @@ export default function PromptComposerV4() {
       {showDS && (
         <div style={{ position:"absolute",top:56,left:0,right:0,zIndex:50,background:"rgba(8,8,8,0.97)",backdropFilter:"blur(12px)",borderBottom:"1px solid #181818",padding:"20px 24px",maxHeight:"70vh",overflowY:"auto",animation:"slideUp 0.2s ease" }}>
           <div style={{ display:"flex", justifyContent:"space-between", marginBottom:16 }}>
-            <div><div style={{ fontSize:15, fontWeight:600, marginBottom:4 }}>◆ IES Design System Adoption</div><div style={{ fontSize:11, color:"#777", maxWidth:600 }}>Work through in order. Step 4 runs per-component. Steps 5a/5b handle icon inventory then export.</div></div>
-            <button onClick={() => setShowDS(false)} style={{ background:"none",border:"none",color:"#444",fontSize:18,cursor:"pointer" }}>×</button>
+            <div><div style={{ fontSize:15, fontWeight:600, marginBottom:4 }}><IdsIcon name="diamond" size={16} style={{ marginRight:6 }} />IES Design System Adoption</div><div style={{ fontSize:11, color:"#777", maxWidth:600 }}>Work through in order. Step 4 runs per-component. Steps 5a/5b handle icon inventory then export.</div></div>
+            <button onClick={() => setShowDS(false)} style={{ background:"none",border:"none",color:"#444",fontSize:18,cursor:"pointer" }}><IdsIcon name="close" size={14} /></button>
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))", gap:8 }}>
             {IES_STEPS.map((s,i) => (
@@ -626,7 +634,7 @@ export default function PromptComposerV4() {
                 onMouseEnter={e => e.currentTarget.style.borderColor=accent}
                 onMouseLeave={e => e.currentTarget.style.borderColor="#1C1C1C"}>
                 <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:5 }}>
-                  <span style={{ width:24,height:24,borderRadius:6,background:"rgba(196,244,100,0.07)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:accent }}>{s.icon}</span>
+                  <span style={{ width:24,height:24,borderRadius:6,background:"rgba(196,244,100,0.07)",display:"flex",alignItems:"center",justifyContent:"center",color:accent }}><IdsIcon name={s.icon} size={14} /></span>
                   <span style={{ fontSize:11, fontWeight:500, color:"#E8E4DF" }}>{s.label}</span>
                 </div>
                 <div style={{ fontSize:9, color:"#444", ...mono, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{s.template.split("\n")[0]}</div>
@@ -640,8 +648,8 @@ export default function PromptComposerV4() {
       {showIDSComponents && (
         <div style={{ position:"absolute",top:56,left:0,right:0,zIndex:50,background:"rgba(8,8,8,0.97)",backdropFilter:"blur(12px)",borderBottom:"1px solid #181818",padding:"20px 24px",maxHeight:"70vh",overflowY:"auto",animation:"slideUp 0.2s ease" }}>
           <div style={{ display:"flex", justifyContent:"space-between", marginBottom:16 }}>
-            <div><div style={{ fontSize:15, fontWeight:600, marginBottom:4 }}>❖ IDS Component Presets</div><div style={{ fontSize:11, color:"#777", maxWidth:600 }}>{intentStep ? `${intentStep.label} — what do you want to do?` : "Pick a component to restyle or create."}</div></div>
-            <button onClick={() => { setShowIDSComponents(false); setIntentStep(null); }} style={{ background:"none",border:"none",color:"#444",fontSize:18,cursor:"pointer" }}>×</button>
+            <div><div style={{ fontSize:15, fontWeight:600, marginBottom:4 }}><IdsIcon name="integration-puzzle" size={16} style={{ marginRight:6 }} />IDS Component Presets</div><div style={{ fontSize:11, color:"#777", maxWidth:600 }}>{intentStep ? `${intentStep.label} — what do you want to do?` : "Pick a component to restyle or create."}</div></div>
+            <button onClick={() => { setShowIDSComponents(false); setIntentStep(null); }} style={{ background:"none",border:"none",color:"#444",fontSize:18,cursor:"pointer" }}><IdsIcon name="close" size={14} /></button>
           </div>
 
           {/* Intent step */}
@@ -653,7 +661,7 @@ export default function PromptComposerV4() {
                   style={{ ...S.card, flex:1, maxWidth:220, textAlign:"center", padding:"16px 12px", cursor:"pointer" }}
                   onMouseEnter={e => e.currentTarget.style.borderColor="#64B5F6"}
                   onMouseLeave={e => e.currentTarget.style.borderColor="#1C1C1C"}>
-                  <div style={{ fontSize:18, marginBottom:6 }}>✏️</div>
+                  <div style={{ fontSize:18, marginBottom:6 }}><IdsIcon name="edit" size={20} color="#64B5F6" /></div>
                   <div style={{ fontSize:12, fontWeight:600, marginBottom:4, color:"#E8E4DF" }}>Update existing</div>
                   <div style={{ fontSize:10, color:"#555" }}>Restyle an existing component</div>
                 </button>
@@ -661,12 +669,12 @@ export default function PromptComposerV4() {
                   style={{ ...S.card, flex:1, maxWidth:220, textAlign:"center", padding:"16px 12px", cursor:"pointer" }}
                   onMouseEnter={e => e.currentTarget.style.borderColor=accent}
                   onMouseLeave={e => e.currentTarget.style.borderColor="#1C1C1C"}>
-                  <div style={{ fontSize:18, marginBottom:6 }}>✚</div>
+                  <div style={{ fontSize:18, marginBottom:6 }}><IdsIcon name="create" size={20} color={accent} /></div>
                   <div style={{ fontSize:12, fontWeight:600, marginBottom:4, color:"#E8E4DF" }}>Create from scratch</div>
                   <div style={{ fontSize:10, color:"#555" }}>Build a new IDS-compliant component</div>
                 </button>
               </div>
-              <button onClick={() => setIntentStep(null)} style={{ display:"block", margin:"12px auto 0", background:"none", border:"none", color:"#444", fontSize:10, cursor:"pointer", ...mono }}>← Back to components</button>
+              <button onClick={() => setIntentStep(null)} style={{ display:"block", margin:"12px auto 0", background:"none", border:"none", color:"#444", fontSize:10, cursor:"pointer", ...mono }}><IdsIcon name="arrow-left" size={12} style={{ marginRight:4 }} />Back to components</button>
             </div>
           )}
 
@@ -680,7 +688,7 @@ export default function PromptComposerV4() {
                     onMouseEnter={e => e.currentTarget.style.borderColor="#64B5F6"}
                     onMouseLeave={e => e.currentTarget.style.borderColor="#1C1C1C"}>
                     <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                      <span style={{ width:22,height:22,borderRadius:5,background:"rgba(100,181,246,0.07)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"#64B5F6" }}>❖</span>
+                      <span style={{ width:22,height:22,borderRadius:5,background:"rgba(100,181,246,0.07)",display:"flex",alignItems:"center",justifyContent:"center",color:"#64B5F6" }}><IdsIcon name="integration-puzzle" size={14} /></span>
                       <span style={{ fontSize:11, fontWeight:500, color:"#E8E4DF" }}>{p.label}</span>
                     </div>
                   </button>
@@ -695,8 +703,8 @@ export default function PromptComposerV4() {
       {showDataViz && (
         <div style={{ position:"absolute",top:56,left:0,right:0,zIndex:50,background:"rgba(8,8,8,0.97)",backdropFilter:"blur(12px)",borderBottom:"1px solid #181818",padding:"20px 24px",maxHeight:"70vh",overflowY:"auto",animation:"slideUp 0.2s ease" }}>
           <div style={{ display:"flex", justifyContent:"space-between", marginBottom:16 }}>
-            <div><div style={{ fontSize:15, fontWeight:600, marginBottom:4 }}>◈ Butterscotch Data Viz Presets</div><div style={{ fontSize:11, color:"#777", maxWidth:600 }}>{intentStep && intentStep.overlay==="dataviz" ? `${intentStep.label} — what do you want to do?` : "Pick a widget type and grid size."}</div></div>
-            <button onClick={() => { setShowDataViz(false); setIntentStep(null); }} style={{ background:"none",border:"none",color:"#444",fontSize:18,cursor:"pointer" }}>×</button>
+            <div><div style={{ fontSize:15, fontWeight:600, marginBottom:4 }}><IdsIcon name="chart-pie" size={16} style={{ marginRight:6 }} />Butterscotch Data Viz Presets</div><div style={{ fontSize:11, color:"#777", maxWidth:600 }}>{intentStep && intentStep.overlay==="dataviz" ? `${intentStep.label} — what do you want to do?` : "Pick a widget type and grid size."}</div></div>
+            <button onClick={() => { setShowDataViz(false); setIntentStep(null); }} style={{ background:"none",border:"none",color:"#444",fontSize:18,cursor:"pointer" }}><IdsIcon name="close" size={14} /></button>
           </div>
 
           {/* Intent step */}
@@ -708,7 +716,7 @@ export default function PromptComposerV4() {
                   style={{ ...S.card, flex:1, maxWidth:220, textAlign:"center", padding:"16px 12px", cursor:"pointer" }}
                   onMouseEnter={e => e.currentTarget.style.borderColor="#F4A024"}
                   onMouseLeave={e => e.currentTarget.style.borderColor="#1C1C1C"}>
-                  <div style={{ fontSize:18, marginBottom:6 }}>✏️</div>
+                  <div style={{ fontSize:18, marginBottom:6 }}><IdsIcon name="edit" size={20} color="#F4A024" /></div>
                   <div style={{ fontSize:12, fontWeight:600, marginBottom:4, color:"#E8E4DF" }}>Update existing</div>
                   <div style={{ fontSize:10, color:"#555" }}>Restyle an existing widget</div>
                 </button>
@@ -716,12 +724,12 @@ export default function PromptComposerV4() {
                   style={{ ...S.card, flex:1, maxWidth:220, textAlign:"center", padding:"16px 12px", cursor:"pointer" }}
                   onMouseEnter={e => e.currentTarget.style.borderColor=accent}
                   onMouseLeave={e => e.currentTarget.style.borderColor="#1C1C1C"}>
-                  <div style={{ fontSize:18, marginBottom:6 }}>✚</div>
+                  <div style={{ fontSize:18, marginBottom:6 }}><IdsIcon name="create" size={20} color={accent} /></div>
                   <div style={{ fontSize:12, fontWeight:600, marginBottom:4, color:"#E8E4DF" }}>Create from scratch</div>
                   <div style={{ fontSize:10, color:"#555" }}>Build a new data viz widget</div>
                 </button>
               </div>
-              <button onClick={() => setIntentStep(null)} style={{ display:"block", margin:"12px auto 0", background:"none", border:"none", color:"#444", fontSize:10, cursor:"pointer", ...mono }}>← Back to widgets</button>
+              <button onClick={() => setIntentStep(null)} style={{ display:"block", margin:"12px auto 0", background:"none", border:"none", color:"#444", fontSize:10, cursor:"pointer", ...mono }}><IdsIcon name="arrow-left" size={12} style={{ marginRight:4 }} />Back to widgets</button>
             </div>
           )}
 
@@ -735,7 +743,7 @@ export default function PromptComposerV4() {
                       onMouseEnter={e => e.currentTarget.style.borderColor="#F4A024"}
                       onMouseLeave={e => e.currentTarget.style.borderColor="#1C1C1C"}>
                       <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                        <span style={{ width:22,height:22,borderRadius:5,background:"rgba(244,160,36,0.07)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"#F4A024" }}>◈</span>
+                        <span style={{ width:22,height:22,borderRadius:5,background:"rgba(244,160,36,0.07)",display:"flex",alignItems:"center",justifyContent:"center",color:"#F4A024" }}><IdsIcon name="chart-pie" size={14} /></span>
                         <span style={{ fontSize:11, fontWeight:500, color:"#E8E4DF" }}>{p.label}</span>
                       </div>
                     </button>
@@ -751,7 +759,7 @@ export default function PromptComposerV4() {
         <div style={{ padding:"10px 20px",borderBottom:"1px solid #161616",background:"#0B0B0B",animation:"slideUp 0.15s ease" }}>
           <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
             {SKILLS.map(s => (
-              <div key={s.id} title={s.desc} style={{ padding:"4px 10px", borderRadius:5, fontSize:10, ...mono, background:"rgba(196,244,100,0.06)", color:accent, border:"1px solid rgba(196,244,100,0.15)" }}>✓ {s.name}</div>
+              <div key={s.id} title={s.desc} style={{ padding:"4px 10px", borderRadius:5, fontSize:10, ...mono, background:"rgba(196,244,100,0.06)", color:accent, border:"1px solid rgba(196,244,100,0.15)" }}><IdsIcon name="checkmark" size={12} style={{ marginRight:4 }} />{s.name}</div>
             ))}
           </div>
         </div>
@@ -779,20 +787,20 @@ export default function PromptComposerV4() {
                   Also save to library
                 </label>
               )}
-              <button onClick={() => setSelectingFor(null)} style={{ marginTop:6, background:"none", border:"none", color:"#555", fontSize:10, cursor:"pointer", ...mono }}>✕ Cancel selection</button>
+              <button onClick={() => setSelectingFor(null)} style={{ marginTop:6, background:"none", border:"none", color:"#555", fontSize:10, cursor:"pointer", ...mono }}><IdsIcon name="close" size={12} style={{ marginRight:4 }} />Cancel selection</button>
             </div>
           )}
 
           {/* Tabs */}
           <div style={{ display:"flex", borderBottom:"1px solid #151515" }}>
-            {[{ id:"presets", icon:"⚡", label:"Presets" }, { id:"figma", icon:"◈", label:"Figma" }, { id:"files", icon:"⊕", label:"Targets" }].map(t => (
+            {[{ id:"presets", icon:"lightning", label:"Presets" }, { id:"figma", icon:"figma", label:"Figma" }, { id:"files", icon:"circle-plus", label:"Targets" }].map(t => (
               <button key={t.id} onClick={() => { setActivePanel(t.id); setShowCreate(false); }} style={{
                 flex:1, padding:"9px 6px", background:activePanel===t.id?"#111":"transparent",
                 border:"none", borderBottom:`2px solid ${activePanel===t.id ? (selectingFor && ((selectingFor.kind==="figma"&&t.id==="figma")||((selectingFor.kind==="file"||selectingFor.kind==="target")&&t.id==="files")) ? accent : accent) : "transparent"}`,
                 color: selectingFor && ((selectingFor.kind==="figma"&&t.id==="figma")||((selectingFor.kind==="file"||selectingFor.kind==="target")&&t.id==="files")) ? accent : activePanel===t.id?"#E8E4DF":"#555",
                 fontSize:11, cursor:"pointer", fontWeight:500, display:"flex", alignItems:"center", justifyContent:"center", gap:4,
                 animation: selectingFor && ((selectingFor.kind==="figma"&&t.id==="figma")||((selectingFor.kind==="file"||selectingFor.kind==="target")&&t.id==="files")) ? "selectGlow 1.5s ease infinite" : "none",
-              }}><span style={{ fontSize:11 }}>{t.icon}</span>{t.label}</button>
+              }}><IdsIcon name={t.icon} size={14} style={{ marginRight:2 }} />{t.label}</button>
             ))}
           </div>
 
@@ -802,8 +810,8 @@ export default function PromptComposerV4() {
             {activePanel==="presets" && !showCreate && (
               <div>
                 <div style={{ display:"flex", gap:4, marginBottom:8 }}>
-                  {[{ id:"all", l:"All" },{ id:"apply", l:"⚡ Apply" },{ id:"review", l:"⊿ Review" }].map(ph => (
-                    <button key={ph.id} onClick={() => setActivePhase(ph.id)} style={{ padding:"4px 10px", borderRadius:5, fontSize:10, cursor:"pointer", ...mono, background:activePhase===ph.id?"rgba(255,255,255,0.05)":"transparent", color:activePhase===ph.id?"#ddd":"#444", border:`1px solid ${activePhase===ph.id?"#2A2A2A":"transparent"}` }}>{ph.l}</button>
+                  {[{ id:"all", l:"All", icon:null },{ id:"apply", l:"Apply", icon:"lightning" },{ id:"review", l:"Review", icon:"checklist" }].map(ph => (
+                    <button key={ph.id} onClick={() => setActivePhase(ph.id)} style={{ padding:"4px 10px", borderRadius:5, fontSize:10, cursor:"pointer", ...mono, background:activePhase===ph.id?"rgba(255,255,255,0.05)":"transparent", color:activePhase===ph.id?"#ddd":"#444", border:`1px solid ${activePhase===ph.id?"#2A2A2A":"transparent"}` }}>{ph.icon && <IdsIcon name={ph.icon} size={12} style={{ marginRight:3 }} />}{ph.l}</button>
                   ))}
                 </div>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
@@ -818,7 +826,7 @@ export default function PromptComposerV4() {
                     onMouseEnter={e => e.currentTarget.style.borderColor=p.phase==="review"?"#64B5F6":accent}
                     onMouseLeave={e => e.currentTarget.style.borderColor="#1C1C1C"}>
                     <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:3 }}>
-                      <span style={{ width:22,height:22,borderRadius:5,background:"#1A1A1A",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:p.phase==="review"?"#64B5F6":accent }}>{p.icon}</span>
+                      <span style={{ width:22,height:22,borderRadius:5,background:"#1A1A1A",display:"flex",alignItems:"center",justifyContent:"center",color:p.phase==="review"?"#64B5F6":accent }}>{ICON_NAMES.includes(p.icon) ? <IdsIcon name={p.icon} size={14} /> : <span style={{ fontSize:11 }}>{p.icon}</span>}</span>
                       <span style={{ fontSize:11, fontWeight:500 }}>{p.label}</span>
                       {p.custom && <span style={{ fontSize:7, ...mono, color:"#F4A024", background:"rgba(244,160,36,0.08)", padding:"1px 5px", borderRadius:3 }}>custom</span>}
                       <span style={{ marginLeft:"auto", fontSize:8, ...mono, color:p.phase==="review"?"#64B5F6":"#444", background:p.phase==="review"?"rgba(100,181,246,0.06)":"#0F0F0F", padding:"1px 5px", borderRadius:3 }}>{p.phase}</span>
@@ -840,12 +848,12 @@ export default function PromptComposerV4() {
               <div style={{ animation:"slideUp 0.15s ease" }}>
                 <div style={{ display:"flex", justifyContent:"space-between", marginBottom:12 }}>
                   <span style={{ fontSize:12, fontWeight:600 }}>{editingId?"Edit":"Create"} Preset</span>
-                  <button onClick={() => { setShowCreate(false); setEditingId(null); }} style={{ background:"none",border:"none",color:"#444",fontSize:16,cursor:"pointer" }}>×</button>
+                  <button onClick={() => { setShowCreate(false); setEditingId(null); }} style={{ background:"none",border:"none",color:"#444",fontSize:16,cursor:"pointer" }}><IdsIcon name="close" size={14} /></button>
                 </div>
                 <input value={draft.label} onChange={e => setDraft(d => ({...d,label:e.target.value}))} placeholder="Preset name" style={{ ...S.input, marginBottom:10 }} />
                 <div style={{ fontSize:9, color:"#444", ...mono, marginBottom:4 }}>ICON</div>
                 <div style={{ display:"flex", flexWrap:"wrap", gap:3, marginBottom:10 }}>
-                  {ICON_OPTS.map(ic => <button key={ic} onClick={() => setDraft(d => ({...d,icon:ic}))} style={{ width:28,height:28,borderRadius:5,border:`1px solid ${draft.icon===ic?accent:"#1E1E1E"}`,background:draft.icon===ic?"rgba(196,244,100,0.07)":"#141414",color:draft.icon===ic?accent:"#666",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center" }}>{ic}</button>)}
+                  {ICON_OPTS.map(ic => <button key={ic} onClick={() => setDraft(d => ({...d,icon:ic}))} style={{ width:28,height:28,borderRadius:5,border:`1px solid ${draft.icon===ic?accent:"#1E1E1E"}`,background:draft.icon===ic?"rgba(196,244,100,0.07)":"#141414",color:draft.icon===ic?accent:"#666",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center" }}><IdsIcon name={ic} size={14} /></button>)}
                 </div>
                 <div style={{ fontSize:9, color:"#444", ...mono, marginBottom:4 }}>CATEGORY</div>
                 <div style={{ display:"flex", flexWrap:"wrap", gap:3, marginBottom:10 }}>
@@ -880,7 +888,7 @@ export default function PromptComposerV4() {
                     style={{ display:"flex", alignItems:"center", justifyContent:"space-between", cursor:"pointer", marginBottom:6, padding:"4px 0" }}
                   >
                     <span style={{ fontSize:10, fontWeight:600, color:"#888", ...mono, letterSpacing:"0.04em" }}>
-                      {myLinksCollapsed ? "▸" : "▾"} MY LINKS
+                      <IdsIcon name={myLinksCollapsed ? "chevron-right" : "chevron-down"} size={12} style={{ marginRight:4 }} />MY LINKS
                     </span>
                     <div style={{ display:"flex", alignItems:"center", gap:6 }}>
                       <span style={{ fontSize:9, color:"#333", ...mono }}>{filteredMyLinks.length}</span>
@@ -905,17 +913,17 @@ export default function PromptComposerV4() {
                           onMouseEnter={e => e.currentTarget.style.borderColor = selectingFor&&selectingFor.kind==="figma" ? accent : "#2A2A2A"}
                           onMouseLeave={e => e.currentTarget.style.borderColor = selectingFor ? "#2A2A2A" : "#1C1C1C"}>
                           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:3 }}>
-                            <span style={{ fontSize:11, fontWeight:500 }}>◈ {l.label}</span>
+                            <span style={{ fontSize:11, fontWeight:500 }}><IdsIcon name="figma" size={12} style={{ marginRight:4 }} />{l.label}</span>
                             {selectingFor && selectingFor.kind==="figma" ? (
-                              <span style={{ fontSize:10, color:accent, ...mono }}>← Use this</span>
+                              <span style={{ fontSize:10, color:accent, ...mono }}><IdsIcon name="arrow-left" size={10} style={{ marginRight:3 }} />Use this</span>
                             ) : (
-                              <button onClick={(e) => { e.stopPropagation(); setFigmaLinks(p => p.filter(x => x.id!==l.id)); }} style={{ background:"none",border:"none",color:"#2A2A2A",cursor:"pointer",fontSize:12 }}>×</button>
+                              <button onClick={(e) => { e.stopPropagation(); setFigmaLinks(p => p.filter(x => x.id!==l.id)); }} style={{ background:"none",border:"none",color:"#2A2A2A",cursor:"pointer",fontSize:12 }}><IdsIcon name="close" size={12} /></button>
                             )}
                           </div>
                           <div style={{ fontSize:9, color:"#444", ...mono, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginBottom: selectingFor ? 0 : 8 }}>{l.url}</div>
                           {!selectingFor && (
                             <div style={{ display:"flex", gap:4 }}>
-                              <button onClick={() => copy(l.url, l.id)} style={{ flex:1, ...S.chip, color:copiedId===l.id?accent:"#666", textAlign:"center" }}>{copiedId===l.id?"✓":"⎘"} Copy</button>
+                              <button onClick={() => copy(l.url, l.id)} style={{ flex:1, ...S.chip, color:copiedId===l.id?accent:"#666", textAlign:"center" }}><IdsIcon name={copiedId===l.id?"checkmark":"copy"} size={12} style={{ marginRight:3 }} />Copy</button>
                             </div>
                           )}
                         </div>
@@ -945,13 +953,13 @@ export default function PromptComposerV4() {
                           onMouseEnter={e => { e.currentTarget.style.borderColor = selectingFor ? accent : "#2A2A2A"; e.currentTarget.style.borderLeftColor = link.categoryColor; }}
                           onMouseLeave={e => { e.currentTarget.style.borderColor = selectingFor ? "#2A2A2A" : "#1C1C1C"; e.currentTarget.style.borderLeftColor = link.categoryColor; }}>
                           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:2 }}>
-                            <span style={{ fontSize:11, fontWeight:500 }}>{link.categoryIcon} {link.label}</span>
+                            <span style={{ fontSize:11, fontWeight:500 }}><IdsIcon name={link.categoryIcon} size={12} style={{ marginRight:4 }} />{link.label}</span>
                             {selectingFor && selectingFor.kind==="figma" ? (
-                              <span style={{ fontSize:10, color:accent, ...mono }}>← Use this</span>
+                              <span style={{ fontSize:10, color:accent, ...mono }}><IdsIcon name="arrow-left" size={10} style={{ marginRight:3 }} />Use this</span>
                             ) : (
                               <div style={{ display:"flex", gap:3 }}>
-                                <button onClick={(e) => { e.stopPropagation(); saveLibraryLinkToMyLinks(link); }} style={{ ...S.chip, color:"#555", fontSize:9 }}>★ Save</button>
-                                <button onClick={(e) => { e.stopPropagation(); copy(link.url, link.id); }} style={{ ...S.chip, color:copiedId===link.id?accent:"#555", fontSize:9 }}>{copiedId===link.id?"✓":"⎘"}</button>
+                                <button onClick={(e) => { e.stopPropagation(); saveLibraryLinkToMyLinks(link); }} style={{ ...S.chip, color:"#555", fontSize:9 }}><IdsIcon name="star" size={12} style={{ marginRight:3 }} />Save</button>
+                                <button onClick={(e) => { e.stopPropagation(); copy(link.url, link.id); }} style={{ ...S.chip, color:copiedId===link.id?accent:"#555", fontSize:9 }}><IdsIcon name={copiedId===link.id?"checkmark":"copy"} size={12} /></button>
                               </div>
                             )}
                           </div>
@@ -972,7 +980,7 @@ export default function PromptComposerV4() {
                             style={{ display:"flex", alignItems:"center", justifyContent:"space-between", cursor:"pointer", padding:"5px 0", borderLeft:`2px solid ${cat.color}`, paddingLeft:8, marginBottom:4 }}
                           >
                             <span style={{ fontSize:11, fontWeight:600, color:"#ccc" }}>
-                              {catCollapsed ? "▸" : "▾"} {cat.icon} {cat.label}
+                              <IdsIcon name={catCollapsed ? "chevron-right" : "chevron-down"} size={12} style={{ marginRight:4 }} /><IdsIcon name={cat.icon} size={14} style={{ marginRight:4 }} />{cat.label}
                             </span>
                             <span style={{ fontSize:9, color:"#333", ...mono, background:"#141414", padding:"1px 6px", borderRadius:3 }}>{catLinkCount}</span>
                           </div>
@@ -987,7 +995,7 @@ export default function PromptComposerV4() {
                                   style={{ display:"flex", alignItems:"center", justifyContent:"space-between", cursor:"pointer", padding:"3px 0", marginBottom:2 }}
                                 >
                                   <span style={{ fontSize:10, color:"#666", ...mono }}>
-                                    {grpCollapsed ? "▸" : "▾"} {grp.label}
+                                    <IdsIcon name={grpCollapsed ? "chevron-right" : "chevron-down"} size={10} style={{ marginRight:3 }} />{grp.label}
                                   </span>
                                   <span style={{ fontSize:8, color:"#2A2A2A", ...mono }}>{grp.links.length}</span>
                                 </div>
@@ -1000,11 +1008,11 @@ export default function PromptComposerV4() {
                                     <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
                                       <span style={{ fontSize:10, fontWeight:500 }}>{link.label}</span>
                                       {selectingFor && selectingFor.kind==="figma" ? (
-                                        <span style={{ fontSize:9, color:accent, ...mono }}>← Use</span>
+                                        <span style={{ fontSize:9, color:accent, ...mono }}><IdsIcon name="arrow-left" size={10} style={{ marginRight:3 }} />Use</span>
                                       ) : (
                                         <div style={{ display:"flex", gap:3 }}>
-                                          <button onClick={(e) => { e.stopPropagation(); saveLibraryLinkToMyLinks(link); }} style={{ ...S.chip, color:"#555", fontSize:8, padding:"2px 5px" }}>★</button>
-                                          <button onClick={(e) => { e.stopPropagation(); copy(link.url, link.id); }} style={{ ...S.chip, color:copiedId===link.id?accent:"#555", fontSize:8, padding:"2px 5px" }}>{copiedId===link.id?"✓":"⎘"}</button>
+                                          <button onClick={(e) => { e.stopPropagation(); saveLibraryLinkToMyLinks(link); }} style={{ ...S.chip, color:"#555", fontSize:8, padding:"2px 5px" }}><IdsIcon name="star" size={12} /></button>
+                                          <button onClick={(e) => { e.stopPropagation(); copy(link.url, link.id); }} style={{ ...S.chip, color:copiedId===link.id?accent:"#555", fontSize:8, padding:"2px 5px" }}><IdsIcon name={copiedId===link.id?"checkmark":"copy"} size={12} /></button>
                                         </div>
                                       )}
                                     </div>
@@ -1034,7 +1042,7 @@ export default function PromptComposerV4() {
                       {[{ l:"File path", v:false }, { l:"Description", v:true }].map(opt => (
                         <button key={opt.l} onClick={() => setNewFile(f => ({...f,isDescription:opt.v}))}
                           style={{ ...S.chip, flex:1, textAlign:"center", color: newFile.isDescription===opt.v ? accent : "#555", borderColor: newFile.isDescription===opt.v ? accent : "#1C1C1C" }}>
-                          {opt.v?"💬":"⊡"} {opt.l}
+                          <IdsIcon name={opt.v?"comment":"document"} size={12} style={{ marginRight:4 }} />{opt.l}
                         </button>
                       ))}
                     </div>
@@ -1052,17 +1060,17 @@ export default function PromptComposerV4() {
                     onMouseEnter={e => e.currentTarget.style.borderColor = selectingFor&&(selectingFor.kind==="file"||selectingFor.kind==="target") ? accent : "#2A2A2A"}
                     onMouseLeave={e => e.currentTarget.style.borderColor = selectingFor ? "#2A2A2A" : "#1C1C1C"}>
                     <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:3 }}>
-                      <span style={{ fontSize:11, fontWeight:500 }}>{f.isDescription?"💬":"⊡"} {f.label}</span>
+                      <span style={{ fontSize:11, fontWeight:500 }}><IdsIcon name={f.isDescription?"comment":"document"} size={12} style={{ marginRight:4 }} />{f.label}</span>
                       {selectingFor && (selectingFor.kind==="file"||selectingFor.kind==="target") ? (
-                        <span style={{ fontSize:10, color:accent, ...mono }}>← Use this</span>
+                        <span style={{ fontSize:10, color:accent, ...mono }}><IdsIcon name="arrow-left" size={10} style={{ marginRight:3 }} />Use this</span>
                       ) : (
-                        <button onClick={(e) => { e.stopPropagation(); setFilePaths(p => p.filter(x => x.id!==f.id)); }} style={{ background:"none",border:"none",color:"#2A2A2A",cursor:"pointer",fontSize:12 }}>×</button>
+                        <button onClick={(e) => { e.stopPropagation(); setFilePaths(p => p.filter(x => x.id!==f.id)); }} style={{ background:"none",border:"none",color:"#2A2A2A",cursor:"pointer",fontSize:12 }}><IdsIcon name="close" size={12} /></button>
                       )}
                     </div>
                     <div style={{ fontSize:10, color:f.isDescription?"#777":accent, ...(f.isDescription?{}:mono), opacity:f.isDescription?1:.5, marginBottom: selectingFor ? 0 : 8 }}>{f.path}</div>
                     {!selectingFor && (
                       <div style={{ display:"flex", gap:4 }}>
-                        <button onClick={() => copy(f.path, f.id)} style={{ flex:1, ...S.chip, color:copiedId===f.id?accent:"#666", textAlign:"center" }}>{copiedId===f.id?"✓":"⎘"} Copy</button>
+                        <button onClick={() => copy(f.path, f.id)} style={{ flex:1, ...S.chip, color:copiedId===f.id?accent:"#666", textAlign:"center" }}><IdsIcon name={copiedId===f.id?"checkmark":"copy"} size={12} style={{ marginRight:3 }} />Copy</button>
                       </div>
                     )}
                   </div>
@@ -1078,8 +1086,8 @@ export default function PromptComposerV4() {
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
               <div style={{ fontSize:9, color:"#444", ...mono, letterSpacing:"0.05em" }}>COMPOSE YOUR PROMPT</div>
               <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                {tokenCount > 0 && <span style={{ fontSize:10, color:"#F4A024", ...mono, animation:"pulse 2s ease infinite" }}>⚠ {tokenCount} unfilled</span>}
-                {filledCount > 0 && <span style={{ fontSize:10, color:accent, ...mono }}>✓ {filledCount} linked</span>}
+                {tokenCount > 0 && <span style={{ fontSize:10, color:"#F4A024", ...mono, animation:"pulse 2s ease infinite" }}><IdsIcon name="triangle-exclamation" size={12} style={{ marginRight:3 }} />{tokenCount} unfilled</span>}
+                {filledCount > 0 && <span style={{ fontSize:10, color:accent, ...mono }}><IdsIcon name="checkmark" size={12} style={{ marginRight:3 }} />{filledCount} linked</span>}
               </div>
             </div>
 
@@ -1093,12 +1101,12 @@ export default function PromptComposerV4() {
                     padding:"3px 10px", borderRadius:4, fontSize:10, cursor:"pointer", ...mono, border:"none",
                     background: editorMode==="visual" ? "rgba(196,244,100,0.08)" : "transparent",
                     color: editorMode==="visual" ? accent : "#444",
-                  }}>◈ Visual</button>
+                  }}><IdsIcon name="figma" size={12} style={{ marginRight:3 }} />Visual</button>
                   <button onClick={() => setEditorMode("raw")} style={{
                     padding:"3px 10px", borderRadius:4, fontSize:10, cursor:"pointer", ...mono, border:"none",
                     background: editorMode==="raw" ? "rgba(196,244,100,0.08)" : "transparent",
                     color: editorMode==="raw" ? accent : "#444",
-                  }}>✎ Raw</button>
+                  }}><IdsIcon name="edit" size={12} style={{ marginRight:3 }} />Raw</button>
                   <span style={{ fontSize:9, color:"#2A2A2A", ...mono, marginLeft:6 }}>
                     {editorMode==="visual" ? "Click chips to link/swap. Click text to edit." : "Edit the full prompt including tags."}
                   </span>
@@ -1164,7 +1172,7 @@ export default function PromptComposerV4() {
                               animation: isSelecting ? "selectGlow 1.5s ease infinite" : "pulse 2.5s ease infinite",
                               verticalAlign:"middle", userSelect:"none",
                             }}>
-                            <span style={{ fontSize:13 }}>{seg.kind==="figma"?"◈":seg.kind==="target"?"⊕":"⊡"}</span>
+                            <IdsIcon name={seg.kind==="figma"?"figma":seg.kind==="target"?"circle-plus":"document"} size={14} />
                             {isSelecting ? "Selecting…" : seg.kind==="figma" ? "FIGMA_LINK" : seg.kind==="target" ? "TARGET" : "FILE_PATH"}
                           </span>
                         );
@@ -1184,7 +1192,7 @@ export default function PromptComposerV4() {
                             }}
                             onMouseEnter={e => { e.currentTarget.style.borderColor = accent; e.currentTarget.style.background = "rgba(196,244,100,0.12)"; }}
                             onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(196,244,100,0.2)"; e.currentTarget.style.background = "rgba(196,244,100,0.08)"; }}>
-                            <span style={{ fontSize:12 }}>{seg.kind==="figma"?"◈":seg.kind==="target"?"⊕":"⊡"}</span>
+                            <IdsIcon name={seg.kind==="figma"?"figma":seg.kind==="target"?"circle-plus":"document"} size={14} />
                             <span style={{ fontWeight:500 }}>{seg.label}</span>
                             <span style={{ fontSize:9, color:"#555", maxWidth:120, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                               {seg.value.length > 30 ? "…"+seg.value.slice(-25) : seg.value}
@@ -1205,25 +1213,25 @@ export default function PromptComposerV4() {
                       animation:"fadeIn 0.15s ease",
                     }}>
                       <div style={{ fontSize:11, fontWeight:600, marginBottom:4, color:accent }}>
-                        {popover.kind==="figma"?"◈":popover.kind==="target"?"⊕":"⊡"} {popover.label}
+                        <IdsIcon name={popover.kind==="figma"?"figma":popover.kind==="target"?"circle-plus":"document"} size={14} style={{ marginRight:4 }} />{popover.label}
                       </div>
                       <div style={{ fontSize:9, color:"#555", ...mono, marginBottom:12, wordBreak:"break-all", lineHeight:1.5 }}>{popover.value}</div>
                       <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
                         <button onClick={handleSwap} style={{ width:"100%", background:"#222", border:"1px solid #2A2A2A", borderRadius:6, padding:"7px 10px", color:"#ddd", fontSize:11, cursor:"pointer", ...mono, textAlign:"left", display:"flex", alignItems:"center", gap:8 }}
                           onMouseEnter={e => e.currentTarget.style.borderColor=accent}
                           onMouseLeave={e => e.currentTarget.style.borderColor="#2A2A2A"}>
-                          <span style={{ color:accent }}>↻</span> Swap — choose a different {popover.kind==="figma"?"link":"path"}
+                          <IdsIcon name="swap" size={14} color={accent} /> Swap — choose a different {popover.kind==="figma"?"link":"path"}
                         </button>
                         <button onClick={handleUnlink} style={{ width:"100%", background:"#222", border:"1px solid #2A2A2A", borderRadius:6, padding:"7px 10px", color:"#ddd", fontSize:11, cursor:"pointer", ...mono, textAlign:"left", display:"flex", alignItems:"center", gap:8 }}
                           onMouseEnter={e => e.currentTarget.style.borderColor="#F4A024"}
                           onMouseLeave={e => e.currentTarget.style.borderColor="#2A2A2A"}>
-                          <span style={{ color:"#F4A024" }}>⊘</span> Unlink — revert to placeholder
+                          <IdsIcon name="unlink" size={14} color="#F4A024" /> Unlink — revert to placeholder
                         </button>
                         {!((popover.kind==="figma"?figmaLinks:filePaths).some(x => (popover.kind==="figma"?x.url:x.path)===popover.value)) && (
                           <button onClick={handlePopoverSave} style={{ width:"100%", background:"#222", border:"1px solid #2A2A2A", borderRadius:6, padding:"7px 10px", color:"#ddd", fontSize:11, cursor:"pointer", ...mono, textAlign:"left", display:"flex", alignItems:"center", gap:8 }}
                             onMouseEnter={e => e.currentTarget.style.borderColor="#64B5F6"}
                             onMouseLeave={e => e.currentTarget.style.borderColor="#2A2A2A"}>
-                            <span style={{ color:"#64B5F6" }}>+</span> Save to library
+                            <IdsIcon name="plus" size={14} color="#64B5F6" /> Save to library
                           </button>
                         )}
                       </div>
@@ -1257,7 +1265,7 @@ export default function PromptComposerV4() {
                 background:prompt.trim()?accent:"#1A1A1A", color:prompt.trim()?"#0A0A0A":"#444",
                 border:"none", borderRadius:8, padding:"10px 22px", fontSize:12, fontWeight:600,
                 cursor:prompt.trim()?"pointer":"default", boxShadow:prompt.trim()?"0 4px 20px rgba(196,244,100,0.1)":"none",
-              }}>{copiedId==="main"?"✓ Copied!":"⎘ Copy Prompt"}</button>
+              }}><>{copiedId==="main"?<><IdsIcon name="checkmark" size={14} style={{ marginRight:4 }} />Copied!</>:<><IdsIcon name="copy" size={14} style={{ marginRight:4 }} />Copy Prompt</>}</></button>
               <button onClick={() => { setPrompt(""); setPopover(null); setSelectingFor(null); setEditorMode("raw"); }} style={{ background:"transparent", border:"1px solid #222", borderRadius:8, padding:"10px 14px", color:"#555", fontSize:12, cursor:"pointer" }}>Clear</button>
               <div style={{ flex:1 }} />
               <div style={{ fontSize:8, color:"#1E1E1E", ...mono }}>Apply → Review → Correct</div>
@@ -1367,7 +1375,7 @@ export default function PromptComposerV4() {
             {/* Help header */}
             <div style={{ padding:"20px 28px", borderBottom:"1px solid #181818", display:"flex", alignItems:"center", gap:16, flexShrink:0 }}>
               <div style={{ display:"flex", alignItems:"center", gap:10, flex:1 }}>
-                <div style={{ width:36, height:36, borderRadius:9, background:"rgba(196,244,100,0.1)", border:"1px solid rgba(196,244,100,0.2)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, color:accent }}>?</div>
+                <div style={{ width:36, height:36, borderRadius:9, background:"rgba(196,244,100,0.1)", border:"1px solid rgba(196,244,100,0.2)", display:"flex", alignItems:"center", justifyContent:"center", color:accent }}><IdsIcon name="question" size={20} /></div>
                 <div>
                   <div style={{ fontSize:16, fontWeight:600 }}>How to Use Prompt Composer</div>
                   <div style={{ fontSize:11, color:"#555", ...mono }}>Search or browse — no coding knowledge needed</div>
@@ -1377,13 +1385,13 @@ export default function PromptComposerV4() {
                 style={{ width:36, height:36, borderRadius:9, background:"#1A1A1A", border:"1px solid #2A2A2A", display:"flex", alignItems:"center", justifyContent:"center", color:"#888", fontSize:18, cursor:"pointer" }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = "#f44"; e.currentTarget.style.color = "#f44"; }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = "#2A2A2A"; e.currentTarget.style.color = "#888"; }}
-              >×</button>
+              ><IdsIcon name="close" size={16} /></button>
             </div>
 
             {/* Search bar */}
             <div style={{ padding:"16px 28px 12px", borderBottom:"1px solid #141414", flexShrink:0 }}>
               <div style={{ position:"relative", maxWidth:600 }}>
-                <span style={{ position:"absolute", left:14, top:"50%", transform:"translateY(-50%)", fontSize:16, color:"#444", pointerEvents:"none" }}>⌕</span>
+                <span style={{ position:"absolute", left:14, top:"50%", transform:"translateY(-50%)", color:"#444", pointerEvents:"none" }}><IdsIcon name="search" size={16} /></span>
                 <input
                   value={helpSearch}
                   onChange={e => setHelpSearch(e.target.value)}
@@ -1399,7 +1407,7 @@ export default function PromptComposerV4() {
                   onBlur={e => e.currentTarget.style.borderColor = "#222"}
                 />
                 {helpSearch && (
-                  <button onClick={() => setHelpSearch("")} style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:"#555", fontSize:14, cursor:"pointer" }}>✕</button>
+                  <button onClick={() => setHelpSearch("")} style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:"#555", fontSize:14, cursor:"pointer" }}><IdsIcon name="close" size={12} /></button>
                 )}
               </div>
               {/* Category pills */}

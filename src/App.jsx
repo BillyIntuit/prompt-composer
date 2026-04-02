@@ -621,6 +621,40 @@ export default function PromptComposerV4() {
         </div>
       )}
 
+      {/* ─── DATA VIZ OVERLAY ─── */}
+      {showDataViz && (
+        <div style={{ position:"absolute",top:56,left:0,right:0,zIndex:50,background:"rgba(8,8,8,0.97)",backdropFilter:"blur(12px)",borderBottom:"1px solid #181818",padding:"20px 24px",maxHeight:"70vh",overflowY:"auto",animation:"slideUp 0.2s ease" }}>
+          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:16 }}>
+            <div><div style={{ fontSize:15, fontWeight:600, marginBottom:4 }}>◈ Butterscotch Data Viz Presets</div><div style={{ fontSize:11, color:"#777", maxWidth:600 }}>Pick a widget type and grid size. Each preset references both the layout spec and features spec from Figma.</div></div>
+            <button onClick={() => setShowDataViz(false)} style={{ background:"none",border:"none",color:"#444",fontSize:18,cursor:"pointer" }}>×</button>
+          </div>
+          {(() => {
+            const groups = {};
+            for (const p of DATAVIZ_PRESETS) {
+              if (!groups[p.group]) groups[p.group] = [];
+              groups[p.group].push(p);
+            }
+            return Object.entries(groups).map(([groupLabel, presets]) => (
+              <div key={groupLabel} style={{ marginBottom:16 }}>
+                <div style={{ fontSize:10, ...mono, color:"#F4A024", letterSpacing:"0.04em", marginBottom:6, textTransform:"uppercase" }}>{groupLabel}</div>
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))", gap:8 }}>
+                  {presets.map((p, i) => (
+                    <button key={p.id} onClick={() => { loadPreset({ ...p, phase:"apply" }); setShowDataViz(false); }} style={{ ...S.card, textAlign:"left", animation:`slideUp 0.25s ease ${i*0.02}s both` }}
+                      onMouseEnter={e => e.currentTarget.style.borderColor="#F4A024"}
+                      onMouseLeave={e => e.currentTarget.style.borderColor="#1C1C1C"}>
+                      <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                        <span style={{ width:22,height:22,borderRadius:5,background:"rgba(244,160,36,0.07)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"#F4A024" }}>◈</span>
+                        <span style={{ fontSize:11, fontWeight:500, color:"#E8E4DF" }}>{p.label}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ));
+          })()}
+        </div>
+      )}
+
       {/* Skills */}
       {showSkills && (
         <div style={{ padding:"10px 20px",borderBottom:"1px solid #161616",background:"#0B0B0B",animation:"slideUp 0.15s ease" }}>

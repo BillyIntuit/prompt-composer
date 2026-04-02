@@ -6,6 +6,7 @@ const store = new Store({
     filePaths: [],
     customPresets: [],
     promptHistory: [],
+    recentLinkIds: [],
     preferences: {
       editorMode: "raw",
       activePanel: "presets",

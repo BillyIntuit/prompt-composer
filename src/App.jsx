@@ -136,16 +136,22 @@ export default function PromptComposerV4() {
 
   // Hydrate state from store on mount
   useEffect(() => {
-    if (!isElectron) return;
     const hydrate = async () => {
-      const [links, paths, custom, history, prefs, recents] = await Promise.all([
-        window.electronAPI.store.get("figmaLinks"),
-        window.electronAPI.store.get("filePaths"),
-        window.electronAPI.store.get("customPresets"),
-        window.electronAPI.store.get("promptHistory"),
-        window.electronAPI.store.get("preferences"),
-        window.electronAPI.store.get("recentLinkIds"),
-      ]);
+      let links, paths, custom, history, prefs, recents;
+      if (isElectron) {
+        [links, paths, custom, history, prefs, recents] = await Promise.all([
+          window.electronAPI.store.get("figmaLinks"),
+          window.electronAPI.store.get("filePaths"),
+          window.electronAPI.store.get("customPresets"),
+          window.electronAPI.store.get("promptHistory"),
+          window.electronAPI.store.get("preferences"),
+          window.electronAPI.store.get("recentLinkIds"),
+        ]);
+      } else {
+        const get = (k) => { try { return JSON.parse(localStorage.getItem(`pc:${k}`)); } catch { return null; } };
+        links = get("figmaLinks"); paths = get("filePaths"); custom = get("customPresets");
+        history = get("promptHistory"); prefs = get("preferences"); recents = get("recentLinkIds");
+      }
       if (links?.length) setFigmaLinks(links);
       if (paths?.length) setFilePaths(paths);
       if (custom?.length) setPresets(p => [...p.filter(x => !x.custom), ...custom]);
@@ -160,10 +166,13 @@ export default function PromptComposerV4() {
   // Debounced persist helper
   const persistTimers = useRef({});
   const persistToStore = useCallback((key, value) => {
-    if (!isElectron) return;
     clearTimeout(persistTimers.current[key]);
     persistTimers.current[key] = setTimeout(() => {
-      window.electronAPI.store.set(key, value);
+      if (isElectron) {
+        window.electronAPI.store.set(key, value);
+      } else {
+        try { localStorage.setItem(`pc:${key}`, JSON.stringify(value)); } catch {}
+      }
     }, 500);
   }, []);
 
@@ -483,7 +492,7 @@ export default function PromptComposerV4() {
             Update available: <strong>v{updateInfo.version}</strong>
           </span>
           <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-            <button onClick={() => { if (isElectron) window.electronAPI.openUrl(updateInfo.url); }} style={{ ...S.sBtn(true), padding:"4px 12px", fontSize:11 }}>Download</button>
+            <button onClick={() => { if (isElectron) window.electronAPI.openUrl(updateInfo.url); else window.open(updateInfo.url, "_blank"); }} style={{ ...S.sBtn(true), padding:"4px 12px", fontSize:11 }}>Download</button>
             <button onClick={() => setUpdateInfo(null)} style={S.btnGhost}><IdsIcon name="close" size={12} /></button>
           </div>
         </div>

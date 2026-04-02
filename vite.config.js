@@ -1,12 +1,14 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
+const isWeb = process.env.BUILD_TARGET === "web";
+
 export default defineConfig({
   plugins: [react()],
-  base: "./",
+  base: isWeb ? "/prompt-composer/" : "./",
   root: "src",
   build: {
-    outDir: "../build/renderer",
+    outDir: isWeb ? "../dist-web" : "../build/renderer",
     emptyOutDir: true,
   },
   server: {

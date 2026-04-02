@@ -8,6 +8,7 @@
     "dev": "vite",
     "dev:electron": "NODE_ENV=development electron .",
     "build": "vite build",
+    "build:web": "BUILD_TARGET=web vite build",
     "package:mac": "npm run build && electron-builder --mac",
     "package:win": "npm run build && electron-builder --win"
   },

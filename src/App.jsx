@@ -168,19 +168,22 @@ const SKILLS = [
 /* ═══════════════════════════════════════════════
    HELPERS — parse prompt into segments
    ═══════════════════════════════════════════════ */
-const PLACEHOLDER_RE = /(\{\{FIGMA_LINK\}\}|\{\{FILE_PATH\}\})/g;
-const FILLED_RE = /(\{\{FIGMA_FILLED:([^|]*)\|([^}]*)\}\}|\{\{FILE_FILLED:([^|]*)\|([^}]*)\}\})/g;
-const ANY_TOKEN_RE = /(\{\{(?:FIGMA_LINK|FILE_PATH|FIGMA_FILLED:[^}]*|FILE_FILLED:[^}]*)\}\})/g;
+const PLACEHOLDER_RE = /(\{\{FIGMA_LINK\}\}|\{\{FILE_PATH\}\}|\{\{TARGET\}\})/g;
+const FILLED_RE = /(\{\{FIGMA_FILLED:([^|]*)\|([^}]*)\}\}|\{\{FILE_FILLED:([^|]*)\|([^}]*)\}\}|\{\{TARGET_FILLED:([^|]*)\|([^}]*)\}\})/g;
+const ANY_TOKEN_RE = /(\{\{(?:FIGMA_LINK|FILE_PATH|TARGET|FIGMA_FILLED:[^}]*|FILE_FILLED:[^}]*|TARGET_FILLED:[^}]*)\}\})/g;
 
 function parsePrompt(text) {
   const parts = text.split(ANY_TOKEN_RE).filter(Boolean);
   return parts.map((part, i) => {
     if (part === "{{FIGMA_LINK}}") return { type:"placeholder", kind:"figma", key:i };
     if (part === "{{FILE_PATH}}") return { type:"placeholder", kind:"file", key:i };
+    if (part === "{{TARGET}}") return { type:"placeholder", kind:"target", key:i };
     const fm = part.match(/^\{\{FIGMA_FILLED:([^|]*)\|([^}]*)\}\}$/);
     if (fm) return { type:"filled", kind:"figma", label:fm[1], value:fm[2], key:i };
     const ff = part.match(/^\{\{FILE_FILLED:([^|]*)\|([^}]*)\}\}$/);
     if (ff) return { type:"filled", kind:"file", label:ff[1], value:ff[2], key:i };
+    const ft = part.match(/^\{\{TARGET_FILLED:([^|]*)\|([^}]*)\}\}$/);
+    if (ft) return { type:"filled", kind:"target", label:ft[1], value:ft[2], key:i };
     return { type:"text", value:part, key:i };
   });
 }
@@ -188,7 +191,8 @@ function parsePrompt(text) {
 function promptToPlainText(text) {
   return text
     .replace(/\{\{FIGMA_FILLED:([^|]*)\|([^}]*)\}\}/g, (_, _l, v) => v)
-    .replace(/\{\{FILE_FILLED:([^|]*)\|([^}]*)\}\}/g, (_, _l, v) => v);
+    .replace(/\{\{FILE_FILLED:([^|]*)\|([^}]*)\}\}/g, (_, _l, v) => v)
+    .replace(/\{\{TARGET_FILLED:([^|]*)\|([^}]*)\}\}/g, (_, _l, v) => v);
 }
 
 function replaceNthToken(text, idx, replacement) {
@@ -204,8 +208,16 @@ function rebuildPromptWithTextChange(segments, segIdx, newText) {
   return segments.map((seg, i) => {
     if (i === segIdx) return newText;
     if (seg.type === "text") return seg.value;
-    if (seg.type === "placeholder") return seg.kind === "figma" ? "{{FIGMA_LINK}}" : "{{FILE_PATH}}";
-    if (seg.type === "filled") return seg.kind === "figma" ? `{{FIGMA_FILLED:${seg.label}|${seg.value}}}` : `{{FILE_FILLED:${seg.label}|${seg.value}}}`;
+    if (seg.type === "placeholder") {
+      if (seg.kind === "figma") return "{{FIGMA_LINK}}";
+      if (seg.kind === "file") return "{{FILE_PATH}}";
+      return "{{TARGET}}";
+    }
+    if (seg.type === "filled") {
+      if (seg.kind === "figma") return `{{FIGMA_FILLED:${seg.label}|${seg.value}}}`;
+      if (seg.kind === "file") return `{{FILE_FILLED:${seg.label}|${seg.value}}}`;
+      return `{{TARGET_FILLED:${seg.label}|${seg.value}}}`;
+    }
     return "";
   }).join("");
 }
@@ -378,8 +390,9 @@ export default function PromptComposerV4() {
   // Store BOTH the segment index (for visual highlighting) and token index (for replacement)
   const handleChipClick = (segIdx, kind) => {
     const tokIdx = segToTokenIdx(segIdx);
+    if (tokIdx < 0) return;
     setSelectingFor({ segIndex: segIdx, tokenIndex: tokIdx, kind });
-    setActivePanel(kind==="figma"?"figma":"files");
+    setActivePanel(kind==="figma" ? "figma" : "files");
     setPopover(null);
     setInlineNew("");
   };
@@ -400,8 +413,12 @@ export default function PromptComposerV4() {
   // ── Select from sidebar (in selecting mode) ──
   const handleSelectItem = (kind, label, value, id) => {
     if (!selectingFor) return;
-    const tag = kind==="figma" ? `{{FIGMA_FILLED:${label}|${value}}}` : `{{FILE_FILLED:${label}|${value}}}`;
-    setPrompt(replaceNthToken(prompt, selectingFor.tokenIndex, tag));
+    const tagMap = {
+      figma: `{{FIGMA_FILLED:${label}|${value}}}`,
+      file: `{{FILE_FILLED:${label}|${value}}}`,
+      target: `{{TARGET_FILLED:${label}|${value}}}`,
+    };
+    setPrompt(replaceNthToken(prompt, selectingFor.tokenIndex, tagMap[kind]));
     if (kind==="figma") {
       setFigmaLinks(p => p.map(l => l.id===id?{...l,lastUsed:Date.now()}:l));
       trackRecentLink(id);
@@ -414,9 +431,14 @@ export default function PromptComposerV4() {
   // ── Inline new value (from selecting mode) ──
   const handleInlineSubmit = (kind) => {
     if (!inlineNew.trim() || !selectingFor) return;
-    const label = kind==="figma" ? (inlineNew.split("node-id=")[1]||"Figma Frame") : inlineNew.split("/").pop();
-    const tag = kind==="figma" ? `{{FIGMA_FILLED:${label}|${inlineNew.trim()}}}` : `{{FILE_FILLED:${label}|${inlineNew.trim()}}}`;
-    setPrompt(replaceNthToken(prompt, selectingFor.tokenIndex, tag));
+    const val = inlineNew.trim();
+    const label = kind==="figma" ? (val.split("node-id=")[1]||"Figma Frame") : val.split("/").pop() || val;
+    const tagMap = {
+      figma: `{{FIGMA_FILLED:${label}|${val}}}`,
+      file: `{{FILE_FILLED:${label}|${val}}}`,
+      target: `{{TARGET_FILLED:${label}|${val}}}`,
+    };
+    setPrompt(replaceNthToken(prompt, selectingFor.tokenIndex, tagMap[kind]));
     setSelectingFor(null);
     setInlineNew("");
     setEditorMode("visual");
@@ -429,8 +451,9 @@ export default function PromptComposerV4() {
       if (figmaLinks.some(l => l.url===value)) { showToast("Already saved"); return; }
       setFigmaLinks(p => [{ id:""+Date.now(), url:value, label, lastUsed:Date.now() }, ...p]);
     } else {
+      // Both "file" and "target" save to filePaths/targets
       if (filePaths.some(f => f.path===value)) { showToast("Already saved"); return; }
-      setFilePaths(p => [{ id:""+Date.now(), path:value, label }, ...p]);
+      setFilePaths(p => [{ id:""+Date.now(), path:value, label, isDescription: !value.includes("/") && !value.includes("\\") && !value.includes(".") }, ...p]);
     }
     showToast(`Saved "${label}" to library`);
   };
@@ -450,8 +473,8 @@ export default function PromptComposerV4() {
   };
   const handleUnlink = () => {
     if (!popover) return;
-    const placeholder = popover.kind==="figma"?"{{FIGMA_LINK}}":"{{FILE_PATH}}";
-    setPrompt(replaceNthToken(prompt, popover.tokenIndex, placeholder));
+    const placeholderMap = { figma: "{{FIGMA_LINK}}", file: "{{FILE_PATH}}", target: "{{TARGET}}" };
+    setPrompt(replaceNthToken(prompt, popover.tokenIndex, placeholderMap[popover.kind]));
     setPopover(null);
     showToast("Unlinked");
   };
@@ -461,7 +484,7 @@ export default function PromptComposerV4() {
   const loadPreset = (p) => {
     setPrompt(p.template); setPopover(null); setSelectingFor(null);
     // Auto-switch to visual if preset has tokens
-    if (p.template.includes("{{FIGMA_LINK}}")||p.template.includes("{{FILE_PATH}}")) setEditorMode("visual");
+    if (p.template.includes("{{FIGMA_LINK}}")||p.template.includes("{{FILE_PATH}}")||p.template.includes("{{TARGET}}")) setEditorMode("visual");
     showToast(`Loaded "${p.label}"`);
   };
 
@@ -681,7 +704,7 @@ export default function PromptComposerV4() {
                 Select a {selectingFor.kind==="figma"?"Figma link":"file path"} for the highlighted chip
               </div>
               <div style={{ display:"flex", gap:6, alignItems:"center" }}>
-                <input value={inlineNew} onChange={e => setInlineNew(e.target.value)} placeholder={selectingFor.kind==="figma"?"Or paste a new Figma URL…":"Or type a new file path…"} style={{ ...S.input, fontSize:11, ...mono, flex:1 }}
+                <input value={inlineNew} onChange={e => setInlineNew(e.target.value)} placeholder={selectingFor.kind==="figma"?"Or paste a new Figma URL…":selectingFor.kind==="target"?"Or type a file path or description…":"Or type a new file path…"} style={{ ...S.input, fontSize:11, ...mono, flex:1 }}
                   onKeyDown={e => e.key==="Enter" && handleInlineSubmit(selectingFor.kind)} />
                 <button onClick={() => handleInlineSubmit(selectingFor.kind)} disabled={!inlineNew.trim()} style={{ ...S.sBtn(!!inlineNew.trim()), padding:"6px 12px", fontSize:10 }}>Use</button>
               </div>
@@ -1057,16 +1080,16 @@ export default function PromptComposerV4() {
                           <span key={idx} onClick={() => handleChipClick(idx, seg.kind)}
                             style={{
                               display:"inline-flex", alignItems:"center", gap:4,
-                              background: isSelecting ? "rgba(196,244,100,0.15)" : "rgba(244,160,36,0.1)",
-                              border:`1px solid ${isSelecting ? accent : "rgba(244,160,36,0.25)"}`,
+                              background: isSelecting ? "rgba(196,244,100,0.15)" : seg.kind==="target" ? "rgba(255,255,255,0.06)" : "rgba(244,160,36,0.1)",
+                              border:`1px solid ${isSelecting ? accent : seg.kind==="target" ? "rgba(255,255,255,0.15)" : "rgba(244,160,36,0.25)"}`,
                               borderRadius:6, padding:"2px 10px 2px 8px", margin:"0 3px",
                               fontSize:11, ...mono, cursor:"pointer", transition:"all 0.2s",
-                              color: isSelecting ? accent : "#F4A024",
+                              color: isSelecting ? accent : seg.kind==="target" ? "#999" : "#F4A024",
                               animation: isSelecting ? "selectGlow 1.5s ease infinite" : "pulse 2.5s ease infinite",
                               verticalAlign:"middle", userSelect:"none",
                             }}>
-                            <span style={{ fontSize:13 }}>{seg.kind==="figma"?"◈":"⊡"}</span>
-                            {isSelecting ? "Selecting…" : seg.kind==="figma" ? "FIGMA_LINK" : "FILE_PATH"}
+                            <span style={{ fontSize:13 }}>{seg.kind==="figma"?"◈":seg.kind==="target"?"⊕":"⊡"}</span>
+                            {isSelecting ? "Selecting…" : seg.kind==="figma" ? "FIGMA_LINK" : seg.kind==="target" ? "TARGET" : "FILE_PATH"}
                           </span>
                         );
                       }
@@ -1085,7 +1108,7 @@ export default function PromptComposerV4() {
                             }}
                             onMouseEnter={e => { e.currentTarget.style.borderColor = accent; e.currentTarget.style.background = "rgba(196,244,100,0.12)"; }}
                             onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(196,244,100,0.2)"; e.currentTarget.style.background = "rgba(196,244,100,0.08)"; }}>
-                            <span style={{ fontSize:12 }}>{seg.kind==="figma"?"◈":"⊡"}</span>
+                            <span style={{ fontSize:12 }}>{seg.kind==="figma"?"◈":seg.kind==="target"?"⊕":"⊡"}</span>
                             <span style={{ fontWeight:500 }}>{seg.label}</span>
                             <span style={{ fontSize:9, color:"#555", maxWidth:120, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                               {seg.value.length > 30 ? "…"+seg.value.slice(-25) : seg.value}

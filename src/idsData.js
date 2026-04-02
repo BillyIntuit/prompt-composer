@@ -302,6 +302,34 @@ STEP 4 — SELF-CHECK:
 Screenshot the component in every state and compare against the Figma spec.
 
 Do NOT change the component's props, API, or behavior — only visual styling.`,
+      createTemplate: `Create a new ${link.label} component that matches the IDS design spec exactly.
+
+STEP 1 — SCREENSHOT THE DESIGN:
+Use Figma MCP get_screenshot on:
+${link.url}
+
+STEP 2 — READ FULL SPEC:
+Use Figma MCP get_design_context to extract:
+- All dimensions, padding, spacing (map to IDS spacing tokens)
+- Colors for every state (map to IDS color tokens)
+- Typography for all text elements (map to IDS type tokens)
+- Border radius (map to IDS radius tokens)
+- Shadows/elevation (map to IDS elevation tokens)
+- Every interactive state: default, hover, focus, active, disabled, error
+
+STEP 3 — CREATE:
+Target location: {{TARGET}}
+(This can be a path like src/components/${link.label}/ OR a description like "in the components folder alongside the other UI components".)
+
+Build the component with:
+- Clean, well-structured code following the project's existing patterns
+- Props for common variants (size, variant/style, disabled state, etc.)
+- All IDS tokens used — no hardcoded values anywhere
+- Accessible: proper ARIA attributes, keyboard navigation, focus management
+- Every visual state matching the Figma spec
+
+STEP 4 — SELF-CHECK:
+Render the component in a test page showing every variant and state. Screenshot and compare against the Figma spec.`,
     });
   }
 }

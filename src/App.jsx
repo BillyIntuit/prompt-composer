@@ -274,6 +274,8 @@ export default function PromptComposerV4() {
   // New pack overlays
   const [showIDSComponents, setShowIDSComponents] = useState(false);
   const [showDataViz, setShowDataViz] = useState(false);
+  // Intent toggle (Create vs Update)
+  const [intentStep, setIntentStep] = useState(null);
 
   // ═══ CHIP INTERACTION STATE ═══
   const [selectingFor, setSelectingFor] = useState(null);
@@ -638,15 +640,43 @@ export default function PromptComposerV4() {
       {showIDSComponents && (
         <div style={{ position:"absolute",top:56,left:0,right:0,zIndex:50,background:"rgba(8,8,8,0.97)",backdropFilter:"blur(12px)",borderBottom:"1px solid #181818",padding:"20px 24px",maxHeight:"70vh",overflowY:"auto",animation:"slideUp 0.2s ease" }}>
           <div style={{ display:"flex", justifyContent:"space-between", marginBottom:16 }}>
-            <div><div style={{ fontSize:15, fontWeight:600, marginBottom:4 }}>❖ IDS Component Presets</div><div style={{ fontSize:11, color:"#777", maxWidth:600 }}>Pick a component to restyle. Each preset has the correct Figma link — just fill in your file path.</div></div>
-            <button onClick={() => setShowIDSComponents(false)} style={{ background:"none",border:"none",color:"#444",fontSize:18,cursor:"pointer" }}>×</button>
+            <div><div style={{ fontSize:15, fontWeight:600, marginBottom:4 }}>❖ IDS Component Presets</div><div style={{ fontSize:11, color:"#777", maxWidth:600 }}>{intentStep ? `${intentStep.label} — what do you want to do?` : "Pick a component to restyle or create."}</div></div>
+            <button onClick={() => { setShowIDSComponents(false); setIntentStep(null); }} style={{ background:"none",border:"none",color:"#444",fontSize:18,cursor:"pointer" }}>×</button>
           </div>
-          {Object.entries(IDS_LINK_LIBRARY.components.groups).map(([grpKey, grp]) => (
+
+          {/* Intent step */}
+          {intentStep && intentStep.overlay === "ids" && (
+            <div style={{ maxWidth:500, margin:"0 auto 20px", animation:"slideUp 0.15s ease" }}>
+              <div style={{ fontSize:13, fontWeight:600, marginBottom:12, textAlign:"center" }}>{intentStep.label}</div>
+              <div style={{ display:"flex", gap:10, justifyContent:"center" }}>
+                <button onClick={() => { loadPreset({ ...intentStep.preset, phase:"apply" }); setShowIDSComponents(false); setIntentStep(null); }}
+                  style={{ ...S.card, flex:1, maxWidth:220, textAlign:"center", padding:"16px 12px", cursor:"pointer" }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor="#64B5F6"}
+                  onMouseLeave={e => e.currentTarget.style.borderColor="#1C1C1C"}>
+                  <div style={{ fontSize:18, marginBottom:6 }}>✏️</div>
+                  <div style={{ fontSize:12, fontWeight:600, marginBottom:4, color:"#E8E4DF" }}>Update existing</div>
+                  <div style={{ fontSize:10, color:"#555" }}>Restyle an existing component</div>
+                </button>
+                <button onClick={() => { loadPreset({ ...intentStep.preset, template: intentStep.preset.createTemplate, phase:"apply" }); setShowIDSComponents(false); setIntentStep(null); }}
+                  style={{ ...S.card, flex:1, maxWidth:220, textAlign:"center", padding:"16px 12px", cursor:"pointer" }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor=accent}
+                  onMouseLeave={e => e.currentTarget.style.borderColor="#1C1C1C"}>
+                  <div style={{ fontSize:18, marginBottom:6 }}>✚</div>
+                  <div style={{ fontSize:12, fontWeight:600, marginBottom:4, color:"#E8E4DF" }}>Create from scratch</div>
+                  <div style={{ fontSize:10, color:"#555" }}>Build a new IDS-compliant component</div>
+                </button>
+              </div>
+              <button onClick={() => setIntentStep(null)} style={{ display:"block", margin:"12px auto 0", background:"none", border:"none", color:"#444", fontSize:10, cursor:"pointer", ...mono }}>← Back to components</button>
+            </div>
+          )}
+
+          {/* Component grid (hidden during intent step) */}
+          {(!intentStep || intentStep.overlay !== "ids") && Object.entries(IDS_LINK_LIBRARY.components.groups).map(([grpKey, grp]) => (
             <div key={grpKey} style={{ marginBottom:16 }}>
               <div style={{ fontSize:10, ...mono, color:"#64B5F6", letterSpacing:"0.04em", marginBottom:6, textTransform:"uppercase" }}>{grp.label}</div>
               <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))", gap:8 }}>
                 {IDS_COMPONENT_PRESETS.filter(p => p.group === grp.label).map((p, i) => (
-                  <button key={p.id} onClick={() => { loadPreset({ ...p, phase:"apply" }); setShowIDSComponents(false); }} style={{ ...S.card, textAlign:"left", animation:`slideUp 0.25s ease ${i*0.02}s both` }}
+                  <button key={p.id} onClick={() => setIntentStep({ label: p.label, preset: p, overlay: "ids" })} style={{ ...S.card, textAlign:"left", animation:`slideUp 0.25s ease ${i*0.02}s both` }}
                     onMouseEnter={e => e.currentTarget.style.borderColor="#64B5F6"}
                     onMouseLeave={e => e.currentTarget.style.borderColor="#1C1C1C"}>
                     <div style={{ display:"flex", alignItems:"center", gap:8 }}>

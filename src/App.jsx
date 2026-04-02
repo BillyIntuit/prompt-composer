@@ -626,7 +626,7 @@ export default function PromptComposerV4() {
         <div style={{ position:"absolute",top:56,left:0,right:0,zIndex:50,background:"rgba(8,8,8,0.97)",backdropFilter:"blur(12px)",borderBottom:"1px solid #181818",padding:"20px 24px",maxHeight:"70vh",overflowY:"auto",animation:"slideUp 0.2s ease" }}>
           <div style={{ display:"flex", justifyContent:"space-between", marginBottom:16 }}>
             <div><div style={{ fontSize:15, fontWeight:600, marginBottom:4 }}><IdsIcon name="diamond" size={16} style={{ marginRight:6 }} />IES Design System Adoption</div><div style={{ fontSize:11, color:"#777", maxWidth:600 }}>Work through in order. Step 4 runs per-component. Steps 5a/5b handle icon inventory then export.</div></div>
-            <button onClick={() => setShowDS(false)} style={{ background:"none",border:"none",color:"#444",fontSize:18,cursor:"pointer" }}><IdsIcon name="close" size={14} /></button>
+            <button onClick={() => setShowDS(false)} style={{ background:"none",border:"none",color:"#444",cursor:"pointer" }}><IdsIcon name="close" size={14} /></button>
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))", gap:8 }}>
             {IES_STEPS.map((s,i) => (
@@ -649,7 +649,7 @@ export default function PromptComposerV4() {
         <div style={{ position:"absolute",top:56,left:0,right:0,zIndex:50,background:"rgba(8,8,8,0.97)",backdropFilter:"blur(12px)",borderBottom:"1px solid #181818",padding:"20px 24px",maxHeight:"70vh",overflowY:"auto",animation:"slideUp 0.2s ease" }}>
           <div style={{ display:"flex", justifyContent:"space-between", marginBottom:16 }}>
             <div><div style={{ fontSize:15, fontWeight:600, marginBottom:4 }}><IdsIcon name="integration-puzzle" size={16} style={{ marginRight:6 }} />IDS Component Presets</div><div style={{ fontSize:11, color:"#777", maxWidth:600 }}>{intentStep ? `${intentStep.label} — what do you want to do?` : "Pick a component to restyle or create."}</div></div>
-            <button onClick={() => { setShowIDSComponents(false); setIntentStep(null); }} style={{ background:"none",border:"none",color:"#444",fontSize:18,cursor:"pointer" }}><IdsIcon name="close" size={14} /></button>
+            <button onClick={() => { setShowIDSComponents(false); setIntentStep(null); }} style={{ background:"none",border:"none",color:"#444",cursor:"pointer" }}><IdsIcon name="close" size={14} /></button>
           </div>
 
           {/* Intent step */}
@@ -661,7 +661,7 @@ export default function PromptComposerV4() {
                   style={{ ...S.card, flex:1, maxWidth:220, textAlign:"center", padding:"16px 12px", cursor:"pointer" }}
                   onMouseEnter={e => e.currentTarget.style.borderColor="#64B5F6"}
                   onMouseLeave={e => e.currentTarget.style.borderColor="#1C1C1C"}>
-                  <div style={{ fontSize:18, marginBottom:6 }}><IdsIcon name="edit" size={20} color="#64B5F6" /></div>
+                  <div style={{ marginBottom:6 }}><IdsIcon name="edit" size={20} color="#64B5F6" /></div>
                   <div style={{ fontSize:12, fontWeight:600, marginBottom:4, color:"#E8E4DF" }}>Update existing</div>
                   <div style={{ fontSize:10, color:"#555" }}>Restyle an existing component</div>
                 </button>
@@ -669,7 +669,7 @@ export default function PromptComposerV4() {
                   style={{ ...S.card, flex:1, maxWidth:220, textAlign:"center", padding:"16px 12px", cursor:"pointer" }}
                   onMouseEnter={e => e.currentTarget.style.borderColor=accent}
                   onMouseLeave={e => e.currentTarget.style.borderColor="#1C1C1C"}>
-                  <div style={{ fontSize:18, marginBottom:6 }}><IdsIcon name="create" size={20} color={accent} /></div>
+                  <div style={{ marginBottom:6 }}><IdsIcon name="create" size={20} color={accent} /></div>
                   <div style={{ fontSize:12, fontWeight:600, marginBottom:4, color:"#E8E4DF" }}>Create from scratch</div>
                   <div style={{ fontSize:10, color:"#555" }}>Build a new IDS-compliant component</div>
                 </button>
@@ -704,7 +704,7 @@ export default function PromptComposerV4() {
         <div style={{ position:"absolute",top:56,left:0,right:0,zIndex:50,background:"rgba(8,8,8,0.97)",backdropFilter:"blur(12px)",borderBottom:"1px solid #181818",padding:"20px 24px",maxHeight:"70vh",overflowY:"auto",animation:"slideUp 0.2s ease" }}>
           <div style={{ display:"flex", justifyContent:"space-between", marginBottom:16 }}>
             <div><div style={{ fontSize:15, fontWeight:600, marginBottom:4 }}><IdsIcon name="chart-pie" size={16} style={{ marginRight:6 }} />Butterscotch Data Viz Presets</div><div style={{ fontSize:11, color:"#777", maxWidth:600 }}>{intentStep && intentStep.overlay==="dataviz" ? `${intentStep.label} — what do you want to do?` : "Pick a widget type and grid size."}</div></div>
-            <button onClick={() => { setShowDataViz(false); setIntentStep(null); }} style={{ background:"none",border:"none",color:"#444",fontSize:18,cursor:"pointer" }}><IdsIcon name="close" size={14} /></button>
+            <button onClick={() => { setShowDataViz(false); setIntentStep(null); }} style={{ background:"none",border:"none",color:"#444",cursor:"pointer" }}><IdsIcon name="close" size={14} /></button>
           </div>
 
           {/* Intent step */}
@@ -716,7 +716,7 @@ export default function PromptComposerV4() {
                   style={{ ...S.card, flex:1, maxWidth:220, textAlign:"center", padding:"16px 12px", cursor:"pointer" }}
                   onMouseEnter={e => e.currentTarget.style.borderColor="#F4A024"}
                   onMouseLeave={e => e.currentTarget.style.borderColor="#1C1C1C"}>
-                  <div style={{ fontSize:18, marginBottom:6 }}><IdsIcon name="edit" size={20} color="#F4A024" /></div>
+                  <div style={{ marginBottom:6 }}><IdsIcon name="edit" size={20} color="#F4A024" /></div>
                   <div style={{ fontSize:12, fontWeight:600, marginBottom:4, color:"#E8E4DF" }}>Update existing</div>
                   <div style={{ fontSize:10, color:"#555" }}>Restyle an existing widget</div>
                 </button>
@@ -724,7 +724,7 @@ export default function PromptComposerV4() {
                   style={{ ...S.card, flex:1, maxWidth:220, textAlign:"center", padding:"16px 12px", cursor:"pointer" }}
                   onMouseEnter={e => e.currentTarget.style.borderColor=accent}
                   onMouseLeave={e => e.currentTarget.style.borderColor="#1C1C1C"}>
-                  <div style={{ fontSize:18, marginBottom:6 }}><IdsIcon name="create" size={20} color={accent} /></div>
+                  <div style={{ marginBottom:6 }}><IdsIcon name="create" size={20} color={accent} /></div>
                   <div style={{ fontSize:12, fontWeight:600, marginBottom:4, color:"#E8E4DF" }}>Create from scratch</div>
                   <div style={{ fontSize:10, color:"#555" }}>Build a new data viz widget</div>
                 </button>

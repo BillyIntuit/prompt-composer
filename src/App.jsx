@@ -1224,6 +1224,7 @@ export default function PromptComposerV4() {
             { q:"I clicked a chip but nothing happened", a:"Make sure you're looking at the left sidebar. When you click a chip:\n\n1. The sidebar should switch to the Figma or Files tab\n2. A green banner appears at the top of the sidebar saying 'Select a...' \n3. Click one of the saved items, or type a new value in the input\n\nIf the sidebar didn't switch, try clicking the chip again. If you want to cancel, click '✕ Cancel selection' in the sidebar banner.", tags:["chip","click","nothing","didn't work","broken","not working","stuck","bug"] },
             { q:"I want to undo filling a chip", a:"Click the green (filled) chip. A popup appears — click 'Unlink' to turn it back into an empty amber chip. You can then fill it with something different.", tags:["undo","unfill","revert","go back","remove","clear chip","empty"] },
           ]},
+          { cat:"ids-library", title:"IDS Design System Library", items: IDS_HELP_ITEMS.map(i => ({ ...i, tags: i.tags })) },
         ];
 
         const allItems = HELP_SECTIONS.flatMap(s => s.items.map(i => ({ ...i, cat:s.cat, catTitle:s.title })));

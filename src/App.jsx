@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { IDS_LINK_LIBRARY, getAllLibraryLinks, IDS_COMPONENT_PRESETS, DATAVIZ_PRESETS, IDS_HELP_ITEMS } from "./idsData";
 
 /* ═══════════════════════════════════════════════
    DATA
@@ -245,6 +246,16 @@ export default function PromptComposerV4() {
   const [helpSearch, setHelpSearch] = useState("");
   const [helpCategory, setHelpCategory] = useState("all");
 
+  // IDS Library state
+  const [figmaSearch, setFigmaSearch] = useState("");
+  const [collapsedCats, setCollapsedCats] = useState({});
+  const [collapsedGroups, setCollapsedGroups] = useState({});
+  const [myLinksCollapsed, setMyLinksCollapsed] = useState(false);
+  const [recentLinkIds, setRecentLinkIds] = useState([]);
+  // New pack overlays
+  const [showIDSComponents, setShowIDSComponents] = useState(false);
+  const [showDataViz, setShowDataViz] = useState(false);
+
   // ═══ CHIP INTERACTION STATE ═══
   const [selectingFor, setSelectingFor] = useState(null);
   const [popover, setPopover] = useState(null);
@@ -259,12 +270,13 @@ export default function PromptComposerV4() {
   useEffect(() => {
     if (!isElectron) return;
     const hydrate = async () => {
-      const [links, paths, custom, history, prefs] = await Promise.all([
+      const [links, paths, custom, history, prefs, recents] = await Promise.all([
         window.electronAPI.store.get("figmaLinks"),
         window.electronAPI.store.get("filePaths"),
         window.electronAPI.store.get("customPresets"),
         window.electronAPI.store.get("promptHistory"),
         window.electronAPI.store.get("preferences"),
+        window.electronAPI.store.get("recentLinkIds"),
       ]);
       if (links?.length) setFigmaLinks(links);
       if (paths?.length) setFilePaths(paths);
@@ -272,6 +284,7 @@ export default function PromptComposerV4() {
       if (history?.length) setPromptHistory(history);
       if (prefs?.editorMode) setEditorMode(prefs.editorMode);
       if (prefs?.activePanel) setActivePanel(prefs.activePanel);
+      if (recents?.length) setRecentLinkIds(recents);
     };
     hydrate();
   }, []);
@@ -286,6 +299,10 @@ export default function PromptComposerV4() {
     }, 500);
   }, []);
 
+  const trackRecentLink = useCallback((linkId) => {
+    setRecentLinkIds(prev => [linkId, ...prev.filter(id => id !== linkId)].slice(0, 30));
+  }, []);
+
   // Persist on state changes
   useEffect(() => { persistToStore("figmaLinks", figmaLinks); }, [figmaLinks]);
   useEffect(() => { persistToStore("filePaths", filePaths); }, [filePaths]);
@@ -297,6 +314,7 @@ export default function PromptComposerV4() {
   useEffect(() => {
     persistToStore("preferences", { editorMode, activePanel });
   }, [editorMode, activePanel]);
+  useEffect(() => { persistToStore("recentLinkIds", recentLinkIds); }, [recentLinkIds]);
 
   // ═══ KEYBOARD SHORTCUTS ═══
   useEffect(() => {
@@ -384,7 +402,10 @@ export default function PromptComposerV4() {
     if (!selectingFor) return;
     const tag = kind==="figma" ? `{{FIGMA_FILLED:${label}|${value}}}` : `{{FILE_FILLED:${label}|${value}}}`;
     setPrompt(replaceNthToken(prompt, selectingFor.tokenIndex, tag));
-    if (kind==="figma") setFigmaLinks(p => p.map(l => l.id===id?{...l,lastUsed:Date.now()}:l));
+    if (kind==="figma") {
+      setFigmaLinks(p => p.map(l => l.id===id?{...l,lastUsed:Date.now()}:l));
+      trackRecentLink(id);
+    }
     setSelectingFor(null);
     setEditorMode("visual");
     showToast(`Linked "${label}"`);
@@ -412,6 +433,12 @@ export default function PromptComposerV4() {
       setFilePaths(p => [{ id:""+Date.now(), path:value, label }, ...p]);
     }
     showToast(`Saved "${label}" to library`);
+  };
+
+  const saveLibraryLinkToMyLinks = (link) => {
+    if (figmaLinks.some(l => l.url === link.url)) { showToast("Already in My Links"); return; }
+    setFigmaLinks(p => [{ id: "" + Date.now(), url: link.url, label: link.label, lastUsed: Date.now() }, ...p]);
+    showToast(`Saved "${link.label}" to My Links`);
   };
 
   // ── Popover actions ──
@@ -466,6 +493,23 @@ export default function PromptComposerV4() {
     if (activePhase!=="all"&&p.phase!==activePhase) return false;
     return true;
   });
+
+  // Figma library search
+  const figmaSearchLower = figmaSearch.toLowerCase().trim();
+  const allLibraryLinks = useMemo(() => getAllLibraryLinks(), []);
+  const filteredLibraryLinks = figmaSearchLower
+    ? allLibraryLinks.filter(l =>
+        l.label.toLowerCase().includes(figmaSearchLower) ||
+        l.categoryLabel.toLowerCase().includes(figmaSearchLower) ||
+        l.groupLabel.toLowerCase().includes(figmaSearchLower)
+      )
+    : null;
+  const filteredMyLinks = figmaSearchLower
+    ? figmaLinks.filter(l =>
+        l.label.toLowerCase().includes(figmaSearchLower) ||
+        l.url.toLowerCase().includes(figmaSearchLower)
+      )
+    : figmaLinks;
 
   // Close popover on outside click
   useEffect(() => {
@@ -662,41 +706,161 @@ export default function PromptComposerV4() {
               </div>
             )}
 
-            {/* ── FIGMA LINKS ── */}
+            {/* ── FIGMA LINKS (REDESIGNED) ── */}
             {activePanel==="figma" && (
               <div>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
-                  <span style={{ fontSize:9, color:"#333", ...mono }}>{figmaLinks.length} links</span>
-                  {!selectingFor && <button onClick={() => setAddingLink(!addingLink)} style={S.sBtn(addingLink)}>{addingLink?"Cancel":"+ Add"}</button>}
+                {/* Search bar */}
+                <div style={{ marginBottom:10 }}>
+                  <input
+                    value={figmaSearch}
+                    onChange={e => setFigmaSearch(e.target.value)}
+                    placeholder="Search all links…"
+                    style={{ ...S.input, fontSize:11, ...mono, padding:"7px 10px" }}
+                  />
                 </div>
-                {addingLink && !selectingFor && (
-                  <div style={{ ...S.card, cursor:"default", animation:"slideUp 0.1s ease", padding:12, marginBottom:10 }}>
-                    <input value={newLink.label} onChange={e => setNewLink(l => ({...l,label:e.target.value}))} placeholder="Label" style={{ ...S.input, marginBottom:6 }} />
-                    <input value={newLink.url} onChange={e => setNewLink(l => ({...l,url:e.target.value}))} placeholder="Figma URL" style={{ ...S.input, fontSize:10, ...mono, marginBottom:7 }} onKeyDown={e => e.key==="Enter"&&addFigma()} />
-                    <button onClick={addFigma} style={{ width:"100%", background:accent, color:"#0A0A0A", border:"none", borderRadius:6, padding:7, fontSize:11, fontWeight:600, cursor:"pointer" }}>Save</button>
-                  </div>
-                )}
-                {figmaLinks.sort((a,b) => b.lastUsed-a.lastUsed).map(l => (
-                  <div key={l.id} style={{ ...S.card, cursor:selectingFor?"pointer":"default", borderColor: selectingFor ? "#2A2A2A" : "#1C1C1C" }}
-                    onClick={() => selectingFor && selectingFor.kind==="figma" ? handleSelectItem("figma", l.label, l.url, l.id) : null}
-                    onMouseEnter={e => e.currentTarget.style.borderColor = selectingFor&&selectingFor.kind==="figma" ? accent : "#2A2A2A"}
-                    onMouseLeave={e => e.currentTarget.style.borderColor = selectingFor ? "#2A2A2A" : "#1C1C1C"}>
-                    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:3 }}>
-                      <span style={{ fontSize:11, fontWeight:500 }}>◈ {l.label}</span>
-                      {selectingFor && selectingFor.kind==="figma" ? (
-                        <span style={{ fontSize:10, color:accent, ...mono }}>← Use this</span>
-                      ) : (
-                        <button onClick={(e) => { e.stopPropagation(); setFigmaLinks(p => p.filter(x => x.id!==l.id)); }} style={{ background:"none",border:"none",color:"#2A2A2A",cursor:"pointer",fontSize:12 }}>×</button>
+
+                {/* ── MY LINKS section ── */}
+                <div style={{ marginBottom:12 }}>
+                  <div
+                    onClick={() => !selectingFor && setMyLinksCollapsed(!myLinksCollapsed)}
+                    style={{ display:"flex", alignItems:"center", justifyContent:"space-between", cursor:"pointer", marginBottom:6, padding:"4px 0" }}
+                  >
+                    <span style={{ fontSize:10, fontWeight:600, color:"#888", ...mono, letterSpacing:"0.04em" }}>
+                      {myLinksCollapsed ? "▸" : "▾"} MY LINKS
+                    </span>
+                    <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                      <span style={{ fontSize:9, color:"#333", ...mono }}>{filteredMyLinks.length}</span>
+                      {!selectingFor && !myLinksCollapsed && (
+                        <button onClick={(e) => { e.stopPropagation(); setAddingLink(!addingLink); }} style={S.sBtn(addingLink)}>{addingLink?"Cancel":"+ Add"}</button>
                       )}
                     </div>
-                    <div style={{ fontSize:9, color:"#444", ...mono, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginBottom: selectingFor ? 0 : 8 }}>{l.url}</div>
-                    {!selectingFor && (
-                      <div style={{ display:"flex", gap:4 }}>
-                        <button onClick={() => copy(l.url, l.id)} style={{ flex:1, ...S.chip, color:copiedId===l.id?accent:"#666", textAlign:"center" }}>{copiedId===l.id?"✓":"⎘"} Copy</button>
-                      </div>
-                    )}
                   </div>
-                ))}
+
+                  {!myLinksCollapsed && (
+                    <>
+                      {addingLink && !selectingFor && (
+                        <div style={{ ...S.card, cursor:"default", animation:"slideUp 0.1s ease", padding:12, marginBottom:10 }}>
+                          <input value={newLink.label} onChange={e => setNewLink(l => ({...l,label:e.target.value}))} placeholder="Label" style={{ ...S.input, marginBottom:6 }} />
+                          <input value={newLink.url} onChange={e => setNewLink(l => ({...l,url:e.target.value}))} placeholder="Figma URL" style={{ ...S.input, fontSize:10, ...mono, marginBottom:7 }} onKeyDown={e => e.key==="Enter"&&addFigma()} />
+                          <button onClick={addFigma} style={{ width:"100%", background:accent, color:"#0A0A0A", border:"none", borderRadius:6, padding:7, fontSize:11, fontWeight:600, cursor:"pointer" }}>Save</button>
+                        </div>
+                      )}
+                      {filteredMyLinks.sort((a,b) => b.lastUsed-a.lastUsed).map(l => (
+                        <div key={l.id} style={{ ...S.card, cursor:selectingFor?"pointer":"default", borderColor: selectingFor ? "#2A2A2A" : "#1C1C1C" }}
+                          onClick={() => selectingFor && selectingFor.kind==="figma" ? handleSelectItem("figma", l.label, l.url, l.id) : null}
+                          onMouseEnter={e => e.currentTarget.style.borderColor = selectingFor&&selectingFor.kind==="figma" ? accent : "#2A2A2A"}
+                          onMouseLeave={e => e.currentTarget.style.borderColor = selectingFor ? "#2A2A2A" : "#1C1C1C"}>
+                          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:3 }}>
+                            <span style={{ fontSize:11, fontWeight:500 }}>◈ {l.label}</span>
+                            {selectingFor && selectingFor.kind==="figma" ? (
+                              <span style={{ fontSize:10, color:accent, ...mono }}>← Use this</span>
+                            ) : (
+                              <button onClick={(e) => { e.stopPropagation(); setFigmaLinks(p => p.filter(x => x.id!==l.id)); }} style={{ background:"none",border:"none",color:"#2A2A2A",cursor:"pointer",fontSize:12 }}>×</button>
+                            )}
+                          </div>
+                          <div style={{ fontSize:9, color:"#444", ...mono, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginBottom: selectingFor ? 0 : 8 }}>{l.url}</div>
+                          {!selectingFor && (
+                            <div style={{ display:"flex", gap:4 }}>
+                              <button onClick={() => copy(l.url, l.id)} style={{ flex:1, ...S.chip, color:copiedId===l.id?accent:"#666", textAlign:"center" }}>{copiedId===l.id?"✓":"⎘"} Copy</button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      {filteredMyLinks.length === 0 && !addingLink && (
+                        <div style={{ fontSize:10, color:"#333", ...mono, padding:"8px 0", textAlign:"center" }}>
+                          {figmaSearchLower ? "No matches" : "No saved links yet"}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                {/* ── IDS LIBRARY section ── */}
+                <div style={{ borderTop:"1px solid #1A1A1A", paddingTop:10 }}>
+                  <div style={{ fontSize:10, fontWeight:600, color:"#888", ...mono, letterSpacing:"0.04em", marginBottom:8 }}>
+                    IDS LIBRARY
+                  </div>
+
+                  {/* Search results mode */}
+                  {figmaSearchLower && filteredLibraryLinks ? (
+                    <div>
+                      <div style={{ fontSize:9, color:"#444", ...mono, marginBottom:6 }}>{filteredLibraryLinks.length} results</div>
+                      {filteredLibraryLinks.map(link => (
+                        <div key={link.id} style={{ ...S.card, cursor:selectingFor?"pointer":"default", borderLeft:`2px solid ${link.categoryColor}`, borderColor: selectingFor ? "#2A2A2A" : "#1C1C1C", borderLeftColor: link.categoryColor }}
+                          onClick={() => selectingFor && selectingFor.kind==="figma" ? handleSelectItem("figma", link.label, link.url, link.id) : null}
+                          onMouseEnter={e => { e.currentTarget.style.borderColor = selectingFor ? accent : "#2A2A2A"; e.currentTarget.style.borderLeftColor = link.categoryColor; }}
+                          onMouseLeave={e => { e.currentTarget.style.borderColor = selectingFor ? "#2A2A2A" : "#1C1C1C"; e.currentTarget.style.borderLeftColor = link.categoryColor; }}>
+                          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:2 }}>
+                            <span style={{ fontSize:11, fontWeight:500 }}>{link.categoryIcon} {link.label}</span>
+                            {selectingFor && selectingFor.kind==="figma" ? (
+                              <span style={{ fontSize:10, color:accent, ...mono }}>← Use this</span>
+                            ) : (
+                              <button onClick={(e) => { e.stopPropagation(); saveLibraryLinkToMyLinks(link); }} style={{ ...S.chip, color:"#555", fontSize:9 }}>★ Save</button>
+                            )}
+                          </div>
+                          <div style={{ fontSize:8, color:"#333", ...mono }}>{link.groupLabel}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    /* Hierarchical browse mode */
+                    Object.entries(IDS_LINK_LIBRARY).map(([catKey, cat]) => {
+                      const catCollapsed = collapsedCats[catKey];
+                      const catLinkCount = Object.values(cat.groups).reduce((sum, g) => sum + g.links.length, 0);
+                      return (
+                        <div key={catKey} style={{ marginBottom:8 }}>
+                          {/* Category header */}
+                          <div
+                            onClick={() => setCollapsedCats(prev => ({...prev, [catKey]: !prev[catKey]}))}
+                            style={{ display:"flex", alignItems:"center", justifyContent:"space-between", cursor:"pointer", padding:"5px 0", borderLeft:`2px solid ${cat.color}`, paddingLeft:8, marginBottom:4 }}
+                          >
+                            <span style={{ fontSize:11, fontWeight:600, color:"#ccc" }}>
+                              {catCollapsed ? "▸" : "▾"} {cat.icon} {cat.label}
+                            </span>
+                            <span style={{ fontSize:9, color:"#333", ...mono, background:"#141414", padding:"1px 6px", borderRadius:3 }}>{catLinkCount}</span>
+                          </div>
+
+                          {!catCollapsed && Object.entries(cat.groups).map(([grpKey, grp]) => {
+                            const grpCollapsed = collapsedGroups[`${catKey}-${grpKey}`];
+                            return (
+                              <div key={grpKey} style={{ marginLeft:12, marginBottom:4 }}>
+                                {/* Group header */}
+                                <div
+                                  onClick={() => setCollapsedGroups(prev => ({...prev, [`${catKey}-${grpKey}`]: !prev[`${catKey}-${grpKey}`]}))}
+                                  style={{ display:"flex", alignItems:"center", justifyContent:"space-between", cursor:"pointer", padding:"3px 0", marginBottom:2 }}
+                                >
+                                  <span style={{ fontSize:10, color:"#666", ...mono }}>
+                                    {grpCollapsed ? "▸" : "▾"} {grp.label}
+                                  </span>
+                                  <span style={{ fontSize:8, color:"#2A2A2A", ...mono }}>{grp.links.length}</span>
+                                </div>
+
+                                {!grpCollapsed && grp.links.map(link => (
+                                  <div key={link.id} style={{ ...S.card, marginLeft:8, cursor:selectingFor?"pointer":"default", borderColor: selectingFor ? "#2A2A2A" : "#1C1C1C", padding:"8px 10px" }}
+                                    onClick={() => selectingFor && selectingFor.kind==="figma" ? handleSelectItem("figma", link.label, link.url, link.id) : null}
+                                    onMouseEnter={e => e.currentTarget.style.borderColor = selectingFor&&selectingFor.kind==="figma" ? accent : "#2A2A2A"}
+                                    onMouseLeave={e => e.currentTarget.style.borderColor = selectingFor ? "#2A2A2A" : "#1C1C1C"}>
+                                    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                                      <span style={{ fontSize:10, fontWeight:500 }}>{link.label}</span>
+                                      {selectingFor && selectingFor.kind==="figma" ? (
+                                        <span style={{ fontSize:9, color:accent, ...mono }}>← Use</span>
+                                      ) : (
+                                        <div style={{ display:"flex", gap:3 }}>
+                                          <button onClick={(e) => { e.stopPropagation(); saveLibraryLinkToMyLinks(link); }} style={{ ...S.chip, color:"#555", fontSize:8, padding:"2px 5px" }}>★</button>
+                                          <button onClick={(e) => { e.stopPropagation(); copy(link.url, link.id); }} style={{ ...S.chip, color:copiedId===link.id?accent:"#555", fontSize:8, padding:"2px 5px" }}>{copiedId===link.id?"✓":"⎘"}</button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
               </div>
             )}
 

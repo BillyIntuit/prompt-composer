@@ -1199,12 +1199,16 @@ export default function PromptComposerV4() {
                       const after = prompt.slice(end);
                       const newPrompt = before + s.t + after;
                       setPrompt(newPrompt);
-                      requestAnimationFrame(() => {
-                        const cursorPos = start + s.t.length;
-                        ta.selectionStart = cursorPos;
-                        ta.selectionEnd = cursorPos;
-                        ta.focus();
-                      });
+                      if (s.t.includes("{{")) {
+                        setEditorMode("visual");
+                      } else {
+                        requestAnimationFrame(() => {
+                          const cursorPos = start + s.t.length;
+                          ta.selectionStart = cursorPos;
+                          ta.selectionEnd = cursorPos;
+                          ta.focus();
+                        });
+                      }
                     } else {
                       // Visual mode: rebuild prompt from current DOM state, then insert at selection
                       const sel = window.getSelection();

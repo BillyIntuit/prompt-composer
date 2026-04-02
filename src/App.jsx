@@ -556,8 +556,10 @@ export default function PromptComposerV4() {
           </div>
         </div>
         <div style={{ display:"flex", gap:6 }}>
-          <button onClick={() => { setShowDS(!showDS); setShowSkills(false); }} style={S.sBtn(showDS)}>◆ IES Pack</button>
-          <button onClick={() => { setShowSkills(!showSkills); setShowDS(false); }} style={S.sBtn(showSkills)}>Skills</button>
+          <button onClick={() => { setShowDS(!showDS); setShowSkills(false); setShowIDSComponents(false); setShowDataViz(false); }} style={S.sBtn(showDS)}>◆ IES Pack</button>
+          <button onClick={() => { setShowIDSComponents(!showIDSComponents); setShowDS(false); setShowSkills(false); setShowDataViz(false); }} style={S.sBtn(showIDSComponents)}>❖ IDS Components</button>
+          <button onClick={() => { setShowDataViz(!showDataViz); setShowDS(false); setShowSkills(false); setShowIDSComponents(false); }} style={S.sBtn(showDataViz)}>◈ Data Viz</button>
+          <button onClick={() => { setShowSkills(!showSkills); setShowDS(false); setShowIDSComponents(false); setShowDataViz(false); }} style={S.sBtn(showSkills)}>Skills</button>
           <button onClick={() => setShowHelp(true)} style={{
             width:32, height:32, borderRadius:8, display:"flex", alignItems:"center", justifyContent:"center",
             background:"#1A1A1A", border:"1px solid #2A2A2A", color:"#888", fontSize:15, cursor:"pointer",
@@ -589,6 +591,33 @@ export default function PromptComposerV4() {
               </button>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* ─── IDS COMPONENTS OVERLAY ─── */}
+      {showIDSComponents && (
+        <div style={{ position:"absolute",top:56,left:0,right:0,zIndex:50,background:"rgba(8,8,8,0.97)",backdropFilter:"blur(12px)",borderBottom:"1px solid #181818",padding:"20px 24px",maxHeight:"70vh",overflowY:"auto",animation:"slideUp 0.2s ease" }}>
+          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:16 }}>
+            <div><div style={{ fontSize:15, fontWeight:600, marginBottom:4 }}>❖ IDS Component Presets</div><div style={{ fontSize:11, color:"#777", maxWidth:600 }}>Pick a component to restyle. Each preset has the correct Figma link — just fill in your file path.</div></div>
+            <button onClick={() => setShowIDSComponents(false)} style={{ background:"none",border:"none",color:"#444",fontSize:18,cursor:"pointer" }}>×</button>
+          </div>
+          {Object.entries(IDS_LINK_LIBRARY.components.groups).map(([grpKey, grp]) => (
+            <div key={grpKey} style={{ marginBottom:16 }}>
+              <div style={{ fontSize:10, ...mono, color:"#64B5F6", letterSpacing:"0.04em", marginBottom:6, textTransform:"uppercase" }}>{grp.label}</div>
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))", gap:8 }}>
+                {IDS_COMPONENT_PRESETS.filter(p => p.group === grp.label).map((p, i) => (
+                  <button key={p.id} onClick={() => { loadPreset({ ...p, phase:"apply" }); setShowIDSComponents(false); }} style={{ ...S.card, textAlign:"left", animation:`slideUp 0.25s ease ${i*0.02}s both` }}
+                    onMouseEnter={e => e.currentTarget.style.borderColor="#64B5F6"}
+                    onMouseLeave={e => e.currentTarget.style.borderColor="#1C1C1C"}>
+                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                      <span style={{ width:22,height:22,borderRadius:5,background:"rgba(100,181,246,0.07)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"#64B5F6" }}>❖</span>
+                      <span style={{ fontSize:11, fontWeight:500, color:"#E8E4DF" }}>{p.label}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

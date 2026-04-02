@@ -1,184 +1,9 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { IDS_LINK_LIBRARY, getAllLibraryLinks, IDS_COMPONENT_PRESETS, DATAVIZ_PRESETS, IDS_HELP_ITEMS } from "./idsData";
+import { DEFAULT_PRESETS, IES_STEPS, ICON_OPTS, CAT_OPTS, SKILLS } from "./presetsData";
 import IdsIcon, { ICON_NAMES } from "./IdsIcon";
 
-/* ═══════════════════════════════════════════════
-   DATA
-   ═══════════════════════════════════════════════ */
-const DEFAULT_PRESETS = [
-  { id:"match-layout", label:"Match Layout", icon:"grid-tile", category:"Apply", phase:"apply", custom:false,
-    template:`Match the layout and spacing of this Figma frame in the implementation.
-
-STEP 1 — SCREENSHOT THE DESIGN:
-Use Figma MCP get_screenshot on this frame to see the target:
-{{FIGMA_LINK}}
-
-STEP 2 — READ EXACT VALUES:
-Use Figma MCP get_design_context on the same frame to extract:
-- Padding, margins, and gap values
-- Flex/grid alignment and direction
-- Container widths and constraints
-
-STEP 3 — APPLY:
-Target: {{TARGET}}
-(This can be a file path like src/components/Button.tsx OR a description like "the primary button component" — find the relevant files and update them.)
-Match every spatial value from the design context.
-
-STEP 4 — SELF-CHECK:
-After making changes, screenshot the running implementation and compare it side-by-side with the Figma screenshot. List any remaining differences.
-
-Do NOT change colors, typography, or functionality — only layout and spacing.` },
-  { id:"fix-typo", label:"Fix Typography", icon:"editor-text-bold", category:"Apply", phase:"apply", custom:false,
-    template:`The typography doesn't match the design.
-
-STEP 1 — SCREENSHOT:
-Use Figma MCP get_screenshot on:
-{{FIGMA_LINK}}
-
-STEP 2 — READ TYPE SPECS:
-Use Figma MCP get_design_context to extract for every text element:
-- Font family, weight, size
-- Line height and letter spacing
-- Text color and opacity
-
-STEP 3 — APPLY:
-Target: {{TARGET}}
-(This can be a file path like src/components/Button.tsx OR a description like "the primary button component" — find the relevant files and update them.)
-
-STEP 4 — SELF-CHECK:
-Screenshot implementation and compare text rendering against Figma.
-
-Only change typography — not layout, spacing, or functionality.` },
-  { id:"colors", label:"Correct Colors", icon:"eyedropper", category:"Apply", phase:"apply", custom:false,
-    template:`Fix the color palette to match the design.
-
-STEP 1 — SCREENSHOT:
-Use Figma MCP get_screenshot:
-{{FIGMA_LINK}}
-
-STEP 2 — READ COLORS:
-Use get_design_context to extract all colors: backgrounds, text, borders, shadows.
-
-STEP 3 — APPLY:
-Target: {{TARGET}}
-(This can be a file path like src/components/Button.tsx OR a description like "the primary button component" — find the relevant files and update them.)
-
-STEP 4 — SELF-CHECK:
-Screenshot and compare. Only change colors.` },
-  { id:"style-comp", label:"Style Component", icon:"integration-puzzle", category:"Apply", phase:"apply", custom:false,
-    template:`Restyle this component to match design spec.
-
-STEP 1 — SCREENSHOT:
-Use Figma MCP get_screenshot on:
-{{FIGMA_LINK}}
-
-STEP 2 — READ FULL SPEC:
-Use get_design_context for dimensions, padding, radius, colors, typography, shadows, and all states.
-
-STEP 3 — APPLY:
-Target: {{TARGET}}
-(This can be a file path like src/components/Button.tsx OR a description like "the primary button component" — find the relevant files and update them.)
-Match every visual property. Use design tokens where available.
-
-STEP 4 — SELF-CHECK:
-Screenshot every state (default, hover, focus, active, disabled) and compare.
-
-Do NOT change props, API, or behavior — only visual styling.` },
-  { id:"responsive", label:"Responsive Fix", icon:"all-devices", category:"Apply", phase:"apply", custom:false,
-    template:`Fix responsive behavior at smaller viewports.
-
-STEP 1 — SCREENSHOT mobile design:
-Use Figma MCP get_screenshot:
-{{FIGMA_LINK}}
-
-STEP 2 — READ mobile specs via get_design_context.
-
-STEP 3 — APPLY:
-Target: {{TARGET}}
-(This can be a file path like src/components/Button.tsx OR a description like "the primary button component" — find the relevant files and update them.)
-Fix breakpoints at 768px and 375px. Touch targets ≥44px. No overflow.
-
-STEP 4 — SELF-CHECK at 375px and 768px widths.` },
-  { id:"motion", label:"Add Motion", icon:"play", category:"Apply", phase:"apply", custom:false,
-    template:`Add transitions and animations.
-
-REFERENCE: {{FIGMA_LINK}}
-Target: {{TARGET}}
-(This can be a file path like src/components/Button.tsx OR a description like "the primary button component" — find the relevant files and update them.)
-
-Use transform/opacity only. Duration 150-300ms. Add prefers-reduced-motion.` },
-  { id:"visual-qa", label:"Visual QA Audit", icon:"checklist", category:"Review", phase:"review", custom:false,
-    template:`Thorough visual comparison between implementation and design.
-
-STEP 1 — SCREENSHOT BOTH:
-Figma: use get_screenshot on {{FIGMA_LINK}}
-Implementation: screenshot at same viewport size.
-
-STEP 2 — COMPARE everything: layout, typography, colors, radius, states.
-
-STEP 3 — REPORT (do NOT fix):
-| Element | Current | Expected | File:Line | CSS Fix |
-Sort by severity: Critical → Moderate → Minor.` },
-  { id:"correction", label:"Targeted Correction", icon:"edit", category:"Review", phase:"review", custom:false,
-    template:`Previous changes need specific corrections.
-
-DESIGN: {{FIGMA_LINK}}
-Target: {{TARGET}}
-
-WHAT'S STILL WRONG:
-[Describe specific issues here]
-
-For each: screenshot current state → read Figma values → fix → screenshot to verify.
-Only touch the specific things listed.` },
-  { id:"token-audit", label:"Token Audit", icon:"flag", category:"Review", phase:"review", custom:false,
-    template:`Audit for hardcoded values that should use design tokens.
-
-Target: {{TARGET}}
-
-Flag: hardcoded colors, spacing, fonts, radius, shadows.
-Report: | Line | Current | Recommended Token | Confidence |
-Ask before replacing.` },
-];
-
-const IES_STEPS = [
-  { id:"ies-1", label:"1. Tokens & Colors", icon:"eyedropper", cat:"DS",
-    template:`Adopt IES design tokens.\n\nSCREENSHOT token reference: use get_screenshot on:\n{{FIGMA_LINK}}\n\nEXTRACT all color tokens via get_design_context: primitives + semantic aliases.\n\nCREATE/UPDATE token file: {{TARGET}}\n\nREPLACE all hardcoded colors codebase-wide with tokens.\n\nSELF-CHECK: screenshot 3 key screens before/after.` },
-  { id:"ies-2", label:"2. Typography Scale", icon:"editor-text-bold", cat:"DS",
-    template:`Adopt IES type scale.\n\nSCREENSHOT: {{FIGMA_LINK}}\nREAD via get_design_context: families, weights, sizes, line-heights, letter-spacing.\n\nSET UP in: {{TARGET}}\nAdd @font-face, create type tokens, map semantic roles.\n\nAPPLY across codebase. Check for overflow/truncation.\nSELF-CHECK: screenshot key pages.` },
-  { id:"ies-3", label:"3. Spacing & Radius", icon:"ruler-pencil", cat:"DS",
-    template:`Adopt IES spacing, radius, elevation.\n\nREFERENCE: {{FIGMA_LINK}}\nTOKEN FILE: {{TARGET}}\n\nExtract spacing scale, radius scale, elevation scale.\nCreate tokens. Replace all hardcoded values.\nFlag anything that doesn't map cleanly.\n\nSELF-CHECK: screenshot cards, buttons, inputs.` },
-  { id:"ies-4", label:"4. Component — [Name]", icon:"integration-puzzle", cat:"DS",
-    template:`Restyle ONE component to IES specs. Run per-component.\n\nCOMPONENT: [Button / Input / Card / etc.]\n\nSCREENSHOT: {{FIGMA_LINK}}\nREAD full spec via get_design_context.\n\nRESTYLE: {{TARGET}}\nUse ONLY IES tokens. Cover every state.\n\nSELF-CHECK: screenshot all states and compare.` },
-  { id:"ies-5a", label:"5a. Icons — Inventory", icon:"dots-nine", cat:"DS",
-    template:`Scan IES icon library — DO NOT change anything.\n\nSCREENSHOT icon frame: {{FIGMA_LINK}}\nENUMERATE via get_design_context: names, sizes, variants.\n\nCROSS-REFERENCE with codebase usage.\nREPORT: available, used, matched, missing.` },
-  { id:"ies-5b", label:"5b. Icons — Export", icon:"dots-nine", cat:"DS",
-    template:`Export IES icons and set up icon system.\n\nFIGMA FRAME: {{FIGMA_LINK}}\nLOCAL DIR: {{TARGET}}\n\nExport SVGs via Figma MCP. Save as icon-name.svg.\nCreate Icon component (sizes: 16,20,24,32; currentColor).\nReplace all existing icon implementations.\n\nSELF-CHECK: screenshot page with icons.` },
-  { id:"ies-6", label:"6. Motion System", icon:"play", cat:"DS",
-    template:`Adopt IES motion.\n\nREFERENCE: {{FIGMA_LINK}}\nTOKEN FILE: {{TARGET}}\n\nExtract durations + easings. Create motion tokens.\nApply to all interactive elements.\nAdd prefers-reduced-motion.\n\nSELF-CHECK: interact with every animated element.` },
-  { id:"ies-7", label:"7. Final Audit", icon:"checklist", cat:"DS",
-    template:`Full DS compliance audit.\n\nREFERENCE: {{FIGMA_LINK}}\n\nScreenshot every screen vs Figma.\nSearch for hardcoded values.\nVerify component states.\nCheck a11y: contrast, focus, touch targets.\n\nREPORT only — do NOT fix.` },
-];
-
-const ICON_OPTS = [
-  "grid-tile","editor-text-bold","eyedropper","integration-puzzle","all-devices",
-  "play","checklist","edit","flag","ruler-pencil","dots-nine","diamond","chart-pie",
-  "star","lightning","search","settings","paintbrush","image","document","bookmark",
-  "tag","hexagon","circle-check","circle-info","circle-exclamation","copy",
-  "globe-spindle","rocket","lightbulb","tools","atom","growth","magic-wand",
-  "browser-window",
-];
-const CAT_OPTS = ["Apply","Review","Layout","Typography","Color","Component","Motion","Custom"];
-
-const SKILLS = [
-  { id:"fs", name:"Figma Screenshot", desc:"get_screenshot — visual image of any node" },
-  { id:"fc", name:"Figma Context", desc:"get_design_context — properties & specs" },
-  { id:"fds", name:"Figma DS Search", desc:"search_design_system — components & variables" },
-  { id:"fe", name:"File Edit", desc:"Targeted file changes by path" },
-  { id:"mf", name:"Multi-file Edit", desc:"Edit multiple files in one pass" },
-  { id:"cs", name:"Codebase Search", desc:"Find patterns across all files" },
-  { id:"bs", name:"Browser Screenshot", desc:"Screenshot running implementation" },
-  { id:"a11", name:"Accessibility", desc:"Contrast, focus, ARIA audit" },
-];
+/* Data constants (DEFAULT_PRESETS, IES_STEPS, ICON_OPTS, CAT_OPTS, SKILLS) moved to presetsData.js */
 
 /* ═══════════════════════════════════════════════
    HELPERS — parse prompt into segments
@@ -302,6 +127,7 @@ export default function PromptComposerV4() {
   const [selectingFor, setSelectingFor] = useState(null);
   const [popover, setPopover] = useState(null);
   const [inlineNew, setInlineNew] = useState("");
+  const [inlineSaveToLib, setInlineSaveToLib] = useState(false);
   // Editor mode: "raw" (textarea) or "visual" (chips + editable text)
   const [editorMode, setEditorMode] = useState("raw");
 
@@ -381,10 +207,20 @@ export default function PromptComposerV4() {
         setSelectingFor(null);
         setEditorMode("raw");
       }
+      // Escape → close overlays/popovers in priority order
+      if (e.key === "Escape") {
+        if (showHelp) { setShowHelp(false); setHelpSearch(""); setHelpCategory("all"); }
+        else if (popover) { setPopover(null); }
+        else if (selectingFor) { setSelectingFor(null); }
+        else if (showDS) { setShowDS(false); }
+        else if (showIDSComponents) { setShowIDSComponents(false); setIntentStep(null); }
+        else if (showDataViz) { setShowDataViz(false); setIntentStep(null); }
+        else if (showSkills) { setShowSkills(false); }
+      }
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [prompt]);
+  }, [prompt, showHelp, popover, selectingFor, showDS, showIDSComponents, showDataViz, showSkills]);
 
   const editorRef = useRef(null);
   const textareaRef = useRef(null);
@@ -393,7 +229,7 @@ export default function PromptComposerV4() {
   const accent = "#00d0e0";
 
   const showToast = useCallback((m) => { setToast(m); setTimeout(() => setToast(null), 2000); }, []);
-  const copy = async (t, id) => { try { await navigator.clipboard.writeText(t); setCopiedId(id); showToast("Copied"); setTimeout(() => setCopiedId(null), 2000); } catch {} };
+  const copy = async (t, id) => { try { await navigator.clipboard.writeText(t); setCopiedId(id); showToast("Copied"); setTimeout(() => setCopiedId(null), 2000); } catch { showToast("Copy failed"); } };
 
   // ── Parsed segments ──
   const segments = useMemo(() => parsePrompt(prompt), [prompt]);
@@ -407,18 +243,6 @@ export default function PromptComposerV4() {
     for (let i = 0; i < segments.length; i++) {
       if (segments[i].type !== "text") {
         if (i === segIdx) return tokenCount;
-        tokenCount++;
-      }
-    }
-    return -1;
-  }, [segments]);
-
-  // ── Convert token-only index back to segment index ──
-  const tokenToSegIdx = useCallback((tokIdx) => {
-    let tokenCount = 0;
-    for (let i = 0; i < segments.length; i++) {
-      if (segments[i].type !== "text") {
-        if (tokenCount === tokIdx) return i;
         tokenCount++;
       }
     }
@@ -478,8 +302,10 @@ export default function PromptComposerV4() {
       target: `{{TARGET_FILLED:${label}|${val}}}`,
     };
     setPrompt(replaceNthToken(prompt, selectingFor.tokenIndex, tagMap[kind]));
+    if (inlineSaveToLib) handleSaveToLibrary(kind, label, val);
     setSelectingFor(null);
     setInlineNew("");
+    setInlineSaveToLib(false);
     setEditorMode("visual");
     showToast(`Linked "${label}"`);
   };
@@ -494,7 +320,7 @@ export default function PromptComposerV4() {
       if (filePaths.some(f => f.path===value)) { showToast("Already saved"); return; }
       setFilePaths(p => [{ id:""+Date.now(), path:value, label, isDescription: !value.includes("/") && !value.includes("\\") && !value.includes(".") }, ...p]);
     }
-    showToast(`Saved "${label}" to library`);
+    showToast(`Saved "${label}" to ${kind==="figma"?"My Links":"Targets"}`);
   };
 
   const saveLibraryLinkToMyLinks = (link) => {
@@ -540,13 +366,13 @@ export default function PromptComposerV4() {
     if (!draft.label.trim()||!draft.template.trim()) return;
     if (editingId) { setPresets(p => p.map(x => x.id===editingId?{...x,...draft,custom:true}:x)); }
     else { setPresets(p => [...p, { ...draft, id:"c-"+Date.now(), custom:true, phase:"apply" }]); }
-    showToast(editingId?"Updated":"Created");
+    showToast(editingId?`Updated "${draft.label}"`:`Created "${draft.label}"`);
     setDraft({ label:"", icon:"star", category:"Custom", template:"" }); setShowCreate(false); setEditingId(null);
   };
 
   // ── Add figma/file ──
-  const addFigma = () => { if (!newLink.url.trim()) return; setFigmaLinks(p => [{ id:""+Date.now(), url:newLink.url.trim(), label:newLink.label.trim()||"Untitled", lastUsed:Date.now() }, ...p]); setNewLink({url:"",label:""}); setAddingLink(false); showToast("Saved"); };
-  const addFileItem = () => { if (!newFile.path.trim()) return; const val = newFile.path.trim(); const isDes = newFile.isDescription; setFilePaths(p => [{ id:""+Date.now(), path:val, label:newFile.label.trim()||(isDes ? val : val.split("/").pop()), isDescription:isDes }, ...p]); setNewFile({path:"",label:"",isDescription:false}); setAddingFile(false); showToast("Saved"); };
+  const addFigma = () => { if (!newLink.url.trim()) return; const lbl = newLink.label.trim()||"Untitled"; setFigmaLinks(p => [{ id:""+Date.now(), url:newLink.url.trim(), label:lbl, lastUsed:Date.now() }, ...p]); setNewLink({url:"",label:""}); setAddingLink(false); showToast(`Saved "${lbl}" to My Links`); };
+  const addFileItem = () => { if (!newFile.path.trim()) return; const val = newFile.path.trim(); const isDes = newFile.isDescription; const lbl = newFile.label.trim()||(isDes ? val : val.split("/").pop()); setFilePaths(p => [{ id:""+Date.now(), path:val, label:lbl, isDescription:isDes }, ...p]); setNewFile({path:"",label:"",isDescription:false}); setAddingFile(false); showToast(`Saved "${lbl}" to Targets`); };
 
   // ── Filters ──
   const allCats = ["All", ...new Set(presets.map(p => p.category))];
@@ -617,7 +443,19 @@ export default function PromptComposerV4() {
     btnConfirm: { ...btnBase, width:"100%", background:accent, color:"#00254a", border:"none", borderRadius:6, padding:7, fontWeight:600 },
     // IDS Create/Save: flex for form dual-button layouts
     btnCreate: (enabled) => ({ ...btnBase, flex:1, background:enabled?accent:"#103a68", color:enabled?"#00254a":"#5d7a9a", border:"none", borderRadius:7, padding:9, fontWeight:600, cursor:enabled?"pointer":"default" }),
+    // Overlay containers (DS, IDS Components, DataViz)
+    overlay: { position:"absolute",top:56,left:0,right:0,zIndex:50,background:"rgba(0,26,56,0.97)",backdropFilter:"blur(12px)",borderBottom:"1px solid #1a4a7a",padding:"20px 24px",maxHeight:"70vh",overflowY:"auto",animation:"slideUp 0.2s ease" },
+    overlayHeader: { display:"flex", justifyContent:"space-between", marginBottom:16 },
+    // Intent card (Update existing / Create from scratch)
+    intentCard: { ...{ background:"#0a2e52", border:"1px solid #1a4a7a", borderRadius:10, padding:"12px 14px", marginBottom:6, transition:"border-color 0.2s", cursor:"pointer" }, flex:1, maxWidth:220, textAlign:"center", padding:"16px 12px" },
+    // Section label (uppercase, small, colored)
+    sectionLabel: { fontSize:9, color:"#5d7a9a", fontWeight:600, letterSpacing:"0.03em", textTransform:"uppercase", marginBottom:4 },
   };
+  // Hover helpers to reduce inline handler duplication
+  const hoverBorder = (hoverColor, restColor="#1a4a7a") => ({
+    onMouseEnter: (e) => { e.currentTarget.style.borderColor = hoverColor; },
+    onMouseLeave: (e) => { e.currentTarget.style.borderColor = restColor; },
+  });
 
   /* ═══════════════════════════════════════════════
      RENDER
@@ -674,16 +512,15 @@ export default function PromptComposerV4() {
 
       {/* ─── DS OVERLAY ─── */}
       {showDS && (
-        <div style={{ position:"absolute",top:56,left:0,right:0,zIndex:50,background:"rgba(0,26,56,0.97)",backdropFilter:"blur(12px)",borderBottom:"1px solid #1a4a7a",padding:"20px 24px",maxHeight:"70vh",overflowY:"auto",animation:"slideUp 0.2s ease" }}>
-          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:16 }}>
+        <div style={S.overlay}>
+          <div style={S.overlayHeader}>
             <div><div style={{ fontSize:15, fontWeight:600, marginBottom:4 }}><IdsIcon name="diamond" size={16} style={{ marginRight:6 }} />IES Design System Adoption</div><div style={{ fontSize:11, color:"#9bb3c5", maxWidth:600 }}>Work through in order. Step 4 runs per-component. Steps 5a/5b handle icon inventory then export.</div></div>
             <button onClick={() => setShowDS(false)} style={S.btnGhost}><IdsIcon name="close" size={14} /></button>
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))", gap:8 }}>
             {IES_STEPS.map((s,i) => (
               <button key={s.id} onClick={() => { loadPreset(s); setShowDS(false); }} style={{ ...S.card, textAlign:"left", animation:`slideUp 0.25s ease ${i*0.03}s both` }}
-                onMouseEnter={e => e.currentTarget.style.borderColor=accent}
-                onMouseLeave={e => e.currentTarget.style.borderColor="#1a4a7a"}>
+                {...hoverBorder(accent)}>
                 <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:5 }}>
                   <span style={{ width:24,height:24,borderRadius:6,background:"rgba(0,208,224,0.07)",display:"flex",alignItems:"center",justifyContent:"center",color:accent }}><IdsIcon name={s.icon} size={14} /></span>
                   <span style={{ fontSize:11, fontWeight:500, color:"#ebf1f3" }}>{s.label}</span>
@@ -697,8 +534,8 @@ export default function PromptComposerV4() {
 
       {/* ─── IDS COMPONENTS OVERLAY ─── */}
       {showIDSComponents && (
-        <div style={{ position:"absolute",top:56,left:0,right:0,zIndex:50,background:"rgba(0,26,56,0.97)",backdropFilter:"blur(12px)",borderBottom:"1px solid #1a4a7a",padding:"20px 24px",maxHeight:"70vh",overflowY:"auto",animation:"slideUp 0.2s ease" }}>
-          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:16 }}>
+        <div style={S.overlay}>
+          <div style={S.overlayHeader}>
             <div><div style={{ fontSize:15, fontWeight:600, marginBottom:4 }}><IdsIcon name="integration-puzzle" size={16} style={{ marginRight:6 }} />IDS Component Presets</div><div style={{ fontSize:11, color:"#9bb3c5", maxWidth:600 }}>{intentStep ? `${intentStep.label} — what do you want to do?` : "Pick a component to restyle or create."}</div></div>
             <button onClick={() => { setShowIDSComponents(false); setIntentStep(null); }} style={S.btnGhost}><IdsIcon name="close" size={14} /></button>
           </div>
@@ -710,16 +547,14 @@ export default function PromptComposerV4() {
               <div style={{ display:"flex", gap:10, justifyContent:"center" }}>
                 <button onClick={() => { loadPreset({ ...intentStep.preset, phase:"apply" }); setShowIDSComponents(false); setIntentStep(null); }}
                   style={{ ...S.card, flex:1, maxWidth:220, textAlign:"center", padding:"16px 12px", cursor:"pointer" }}
-                  onMouseEnter={e => e.currentTarget.style.borderColor="#64B5F6"}
-                  onMouseLeave={e => e.currentTarget.style.borderColor="#1a4a7a"}>
+                  {...hoverBorder("#64B5F6")}>
                   <div style={{ marginBottom:6 }}><IdsIcon name="edit" size={20} color="#64B5F6" /></div>
                   <div style={{ fontSize:12, fontWeight:600, marginBottom:4, color:"#ebf1f3" }}>Update existing</div>
                   <div style={{ fontSize:10, color:"#7a93aa" }}>Restyle an existing component</div>
                 </button>
                 <button onClick={() => { loadPreset({ ...intentStep.preset, template: intentStep.preset.createTemplate, phase:"apply" }); setShowIDSComponents(false); setIntentStep(null); }}
                   style={{ ...S.card, flex:1, maxWidth:220, textAlign:"center", padding:"16px 12px", cursor:"pointer" }}
-                  onMouseEnter={e => e.currentTarget.style.borderColor=accent}
-                  onMouseLeave={e => e.currentTarget.style.borderColor="#1a4a7a"}>
+                  {...hoverBorder(accent)}>
                   <div style={{ marginBottom:6 }}><IdsIcon name="create" size={20} color={accent} /></div>
                   <div style={{ fontSize:12, fontWeight:600, marginBottom:4, color:"#ebf1f3" }}>Create from scratch</div>
                   <div style={{ fontSize:10, color:"#7a93aa" }}>Build a new IDS-compliant component</div>
@@ -752,8 +587,8 @@ export default function PromptComposerV4() {
 
       {/* ─── DATA VIZ OVERLAY ─── */}
       {showDataViz && (
-        <div style={{ position:"absolute",top:56,left:0,right:0,zIndex:50,background:"rgba(0,26,56,0.97)",backdropFilter:"blur(12px)",borderBottom:"1px solid #1a4a7a",padding:"20px 24px",maxHeight:"70vh",overflowY:"auto",animation:"slideUp 0.2s ease" }}>
-          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:16 }}>
+        <div style={S.overlay}>
+          <div style={S.overlayHeader}>
             <div><div style={{ fontSize:15, fontWeight:600, marginBottom:4 }}><IdsIcon name="chart-pie" size={16} style={{ marginRight:6 }} />Butterscotch Data Viz Presets</div><div style={{ fontSize:11, color:"#9bb3c5", maxWidth:600 }}>{intentStep && intentStep.overlay==="dataviz" ? `${intentStep.label} — what do you want to do?` : "Pick a widget type and grid size."}</div></div>
             <button onClick={() => { setShowDataViz(false); setIntentStep(null); }} style={S.btnGhost}><IdsIcon name="close" size={14} /></button>
           </div>
@@ -773,8 +608,7 @@ export default function PromptComposerV4() {
                 </button>
                 <button onClick={() => { loadPreset({ ...intentStep.preset, template: intentStep.preset.createTemplate, phase:"apply" }); setShowDataViz(false); setIntentStep(null); }}
                   style={{ ...S.card, flex:1, maxWidth:220, textAlign:"center", padding:"16px 12px", cursor:"pointer" }}
-                  onMouseEnter={e => e.currentTarget.style.borderColor=accent}
-                  onMouseLeave={e => e.currentTarget.style.borderColor="#1a4a7a"}>
+                  {...hoverBorder(accent)}>
                   <div style={{ marginBottom:6 }}><IdsIcon name="create" size={20} color={accent} /></div>
                   <div style={{ fontSize:12, fontWeight:600, marginBottom:4, color:"#ebf1f3" }}>Create from scratch</div>
                   <div style={{ fontSize:10, color:"#7a93aa" }}>Build a new data viz widget</div>
@@ -837,7 +671,7 @@ export default function PromptComposerV4() {
               </div>
               {inlineNew.trim() && (
                 <label style={{ display:"flex", alignItems:"center", gap:6, marginTop:6, fontSize:10, color:"#8ba3b8", cursor:"pointer" }}>
-                  <input type="checkbox" id="save-new" style={{ accentColor:accent }} />
+                  <input type="checkbox" id="save-new" checked={inlineSaveToLib} onChange={e => setInlineSaveToLib(e.target.checked)} style={{ accentColor:accent }} />
                   Also save to library
                 </label>
               )}
@@ -889,7 +723,7 @@ export default function PromptComposerV4() {
                     {p.custom && (
                       <div style={{ display:"flex", gap:3, marginTop:6 }} onClick={e => e.stopPropagation()}>
                         <button onClick={() => { setEditingId(p.id); setDraft({ label:p.label,icon:p.icon,category:p.category,template:p.template }); setShowCreate(true); }} style={{ ...S.btnGhost, color:"#9bb3c5", fontSize:10 }}>Edit</button>
-                        <button onClick={() => { setPresets(pr => pr.filter(x => x.id!==p.id)); showToast("Deleted"); }} style={{ ...S.btnGhost, color:"#b61a37", fontSize:10 }}>Delete</button>
+                        <button onClick={() => { setPresets(pr => pr.filter(x => x.id!==p.id)); showToast(`Deleted "${p.label}"`); }} style={{ ...S.btnGhost, color:"#b61a37", fontSize:10 }}>Delete</button>
                       </div>
                     )}
                   </div>
@@ -905,15 +739,15 @@ export default function PromptComposerV4() {
                   <button onClick={() => { setShowCreate(false); setEditingId(null); }} style={S.btnGhost}><IdsIcon name="close" size={14} /></button>
                 </div>
                 <input value={draft.label} onChange={e => setDraft(d => ({...d,label:e.target.value}))} placeholder="Preset name" style={{ ...S.input, marginBottom:10 }} />
-                <div style={{ fontSize:9, color:"#5d7a9a", fontWeight:600, letterSpacing:"0.03em", textTransform:"uppercase", marginBottom:4 }}>ICON</div>
+                <div style={S.sectionLabel}>ICON</div>
                 <div style={{ display:"flex", flexWrap:"wrap", gap:3, marginBottom:10 }}>
                   {ICON_OPTS.map(ic => <button key={ic} onClick={() => setDraft(d => ({...d,icon:ic}))} style={{ width:28,height:28,borderRadius:6,border:`1px solid ${draft.icon===ic?accent:"#5d7a9a"}`,background:draft.icon===ic?"rgba(0,208,224,0.08)":"transparent",color:draft.icon===ic?accent:"#a8bfcf",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.15s" }}><IdsIcon name={ic} size={14} /></button>)}
                 </div>
-                <div style={{ fontSize:9, color:"#5d7a9a", fontWeight:600, letterSpacing:"0.03em", textTransform:"uppercase", marginBottom:4 }}>CATEGORY</div>
+                <div style={S.sectionLabel}>CATEGORY</div>
                 <div style={{ display:"flex", flexWrap:"wrap", gap:3, marginBottom:10 }}>
                   {CAT_OPTS.map(c => <button key={c} onClick={() => setDraft(d => ({...d,category:c}))} style={S.btnPill(draft.category===c)}>{c}</button>)}
                 </div>
-                <div style={{ fontSize:9, color:"#5d7a9a", fontWeight:600, letterSpacing:"0.03em", textTransform:"uppercase", marginBottom:4 }}>TEMPLATE <span style={{ color:"#3a6a9a" }}>— use {"{{FIGMA_LINK}}"} {"{{TARGET}}"}</span></div>
+                <div style={S.sectionLabel}>TEMPLATE <span style={{ color:"#3a6a9a" }}>— use {"{{FIGMA_LINK}}"} {"{{TARGET}}"}</span></div>
                 <textarea value={draft.template} onChange={e => setDraft(d => ({...d,template:e.target.value}))} placeholder="STEP 1 — SCREENSHOT:\n{{FIGMA_LINK}}..." style={{ ...S.input, height:160, ...mono, fontSize:10, lineHeight:1.7, resize:"vertical", marginBottom:10 }} />
                 <div style={{ display:"flex", gap:6 }}>
                   <button onClick={savePreset} disabled={!draft.label.trim()||!draft.template.trim()} style={S.btnCreate(draft.label.trim()&&draft.template.trim())}>{editingId?"Save":"Create"}</button>
@@ -1445,13 +1279,13 @@ export default function PromptComposerV4() {
           ]},
           { cat:"presets", title:"Using Presets", items:[
             { q:"What are presets?", a:"Presets are ready-made prompt templates for common design tasks. Instead of writing 'Please look at this Figma design and fix the fonts to match...' from scratch every time, you click 'Fix Typography' and the whole instruction is written for you — with blank spots for your specific Figma link and file.", tags:["preset","template","what"] },
-            { q:"What do the green 'Apply' and blue 'Review' labels mean?", a:"Green 'Apply' presets tell Claude Code to make changes — fix colors, match layouts, restyle a component.\n\nBlue 'Review' presets tell Claude Code to look and report without changing anything — like 'Visual QA Audit' which lists every difference between your design and the code.\n\nUse Apply first, then Review to check the work, then 'Targeted Correction' to fix what's still off.", tags:["apply","review","green","blue","phase","type","category"] },
+            { q:"What do the green 'Apply' and blue 'Review' labels mean?", a:"Teal 'Apply' presets tell Claude Code to make changes — fix colors, match layouts, restyle a component.\n\nBlue 'Review' presets tell Claude Code to look and report without changing anything — like 'Visual QA Audit' which lists every difference between your design and the code.\n\nUse Apply first, then Review to check the work, then 'Targeted Correction' to fix what's still off.", tags:["apply","review","green","blue","phase","type","category"] },
             { q:"How do I create my own preset?", a:"Click '+ Create' in the Presets panel. You'll fill in:\n\n• Name — what you'll see in the list\n• Icon — pick one from the grid\n• Category — helps with filtering\n• Template — your prompt text\n\nIn the template, type {{FIGMA_LINK}} where you want a Figma link to go, and {{TARGET}} where you want a file path or description, or {{FILE_PATH}} for a specific file path. These become clickable chips when you use the preset.", tags:["create","custom","new preset","make","build","own"] },
             { q:"Can I edit or delete a preset?", a:"Only custom presets (ones you created) can be edited or deleted. They show an orange 'custom' badge. Click the preset to load it, and you'll see 'Edit' and 'Delete' buttons below it. Built-in presets can't be changed, but you can create a custom one based on them.", tags:["edit","delete","change","modify","remove","custom"] },
             { q:"What's the 'Targeted Correction' preset for?", a:"This is your most-used preset after the first pass. When Claude Code makes changes but they're not quite right, load 'Targeted Correction', fill in the Figma link and file, then describe specifically what's still wrong. For example: 'The button padding is too large — should be 12px not 20px' or 'The heading color is wrong, it should be darker.' Be specific.", tags:["correction","fix","wrong","still off","not right","adjust","targeted"] },
           ]},
           { cat:"chips", title:"Chips & Linking", items:[
-            { q:"What are those colored pill-shaped things in my prompt?", a:"Those are 'chips' — interactive placeholders for your Figma links and file paths.\n\nAmber/orange pulsing chips = unfilled, need your input\nGreen chips = filled with a link or path, showing the name\n\nClick an amber chip to fill it. Click a green chip to change it or unlink it.", tags:["chip","pill","colored","orange","green","placeholder","what"] },
+            { q:"What are those colored pill-shaped things in my prompt?", a:"Those are 'chips' — interactive placeholders for your Figma links and file paths.\n\nAmber/orange pulsing chips = unfilled, need your input\nTeal/cyan chips = filled with a link or path, showing the name\n\nClick an amber chip to fill it. Click a teal chip to change it or unlink it.", tags:["chip","pill","colored","orange","green","placeholder","what"] },
             { q:"How do I fill a chip?", a:"Click the amber chip. Two things happen:\n\n1. The left sidebar switches to the right panel (Figma or Files)\n2. Every saved item gets a green 'Use this' label\n\nClick any saved item to link it. Or type a new URL/path in the input box at the top of the sidebar and click 'Use'.\n\nThe chip turns green and shows the name of what you linked.", tags:["fill","link","connect","select","choose","use","how"] },
             { q:"How do I change a chip that's already filled?", a:"Click the green chip. A popup appears with three options:\n\n• Swap — pick a different link/path\n• Unlink — turn it back into an empty amber chip\n• Save to library — if you typed a new value, save it for reuse\n\n'Swap' puts you right back into selection mode.", tags:["change","swap","replace","different","switch","unlink","already filled"] },
             { q:"I have two FIGMA_LINK chips. How do I fill them separately?", a:"Click each one individually. When you click a specific chip, only that chip enters selection mode (it says 'Selecting...'). When you pick a link from the sidebar, it fills only that chip. The other one stays unfilled until you click it.\n\nThis means you can point one chip to your design system tokens and another to a specific component design.", tags:["multiple","two","several","separate","different links","each","both"] },
@@ -1468,7 +1302,7 @@ export default function PromptComposerV4() {
             { q:"How do I add extra instructions to a preset?", a:"After loading a preset, just click into the text (in Visual mode) or use Raw mode and type wherever you want. Common things to add:\n\n• Specific details: 'The heading should be 24px not 20px'\n• Warnings: 'Don't touch the navigation component'\n• Context: 'This is a dark mode variant'\n\nYou can also use the quick-insert buttons at the bottom of the editor to append common clauses.", tags:["add","extra","more","customize","edit","instructions","text","type"] },
             { q:"What are the quick-insert buttons at the bottom?", a:"These are one-click snippets that append useful instructions to your prompt:\n\n• {{FIGMA_LINK}} / {{TARGET}} / {{FILE_PATH}} — adds placeholder chips\n• Screenshot compare — tells Claude Code to take before/after screenshots\n• Style-only guard — tells Claude Code not to change any behavior, just visuals\n• Token enforcement — tells Claude Code to use design tokens, not hardcoded values\n• Scope: element — limits changes to a specific element you describe\n• Scope: state — limits changes to a specific interactive state\n\nThey save you from typing the same reminders over and over.", tags:["quick insert","buttons","bottom","snippet","append","add","shortcut","scope"] },
             { q:"Where does the prompt go after I click 'Copy'?", a:"It goes to your clipboard — the same as Ctrl+C (Cmd+C). Then you:\n\n1. Switch to your terminal where Claude Code is running\n2. Click in the input area\n3. Press Ctrl+V (Cmd+V) to paste\n4. Press Enter to send it\n\nThe copied text is clean — all the chip tags are replaced with the actual Figma URLs and file paths.", tags:["copy","clipboard","paste","send","terminal","where","how","after"] },
-            { q:"What's the prompt history?", a:"Every time you click 'Copy Prompt', it saves that prompt in a history list at the bottom of the editor. If you need to reuse or tweak a previous prompt, click it to reload it. History shows the last few prompts from this session.", tags:["history","previous","past","old","reuse","again","recent"] },
+            { q:"What's the prompt history?", a:"Every time you click 'Copy Prompt', it saves that prompt in a history list at the bottom of the editor. If you need to reuse or tweak a previous prompt, click it to reload it. History is saved across sessions — your recent prompts are always available.", tags:["history","previous","past","old","reuse","again","recent"] },
           ]},
           { cat:"ies", title:"IES Design System Pack", items:[
             { q:"What is the IES Pack?", a:"It's a set of 8 step-by-step prompts that guide Claude Code through adopting the Intuit IES design system in a project. Each step handles a different layer: color tokens, typography, spacing, component styling, icons, motion, and a final audit.\n\nThink of it as a recipe — follow the steps in order, and your project gets migrated to IES.", tags:["ies","pack","what","design system","intuit","migration"] },

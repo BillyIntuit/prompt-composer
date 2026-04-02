@@ -75,7 +75,7 @@ You can also check manually: [Releases page](https://github.com/BillyIntuit/prom
 
 ## Bugs & Feature Requests
 
-Open an issue on this repo or ping **@billy** in the design team Slack channel.
+Open an issue on this repo or ping **@vhong2** in the design team Slack channel.
 
 ---
 

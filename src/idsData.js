@@ -6,7 +6,7 @@ export const IDS_LINK_LIBRARY = {
   foundations: {
     label: "IDS Foundations",
     icon: "diamond",
-    color: "#C4F464",
+    color: "#00d0e0",
     groups: {
       color: {
         label: "Color",
@@ -282,7 +282,7 @@ for (const [grpKey, grp] of Object.entries(IDS_LINK_LIBRARY.components.groups)) 
 
 STEP 1 — SCREENSHOT THE DESIGN:
 Use Figma MCP get_screenshot on:
-${link.url}
+{{FIGMA_FILLED:${link.label}|${link.url}}}
 
 STEP 2 — READ FULL SPEC:
 Use Figma MCP get_design_context to extract:
@@ -306,7 +306,7 @@ Do NOT change the component's props, API, or behavior — only visual styling.`,
 
 STEP 1 — SCREENSHOT THE DESIGN:
 Use Figma MCP get_screenshot on:
-${link.url}
+{{FIGMA_FILLED:${link.label}|${link.url}}}
 
 STEP 2 — READ FULL SPEC:
 Use Figma MCP get_design_context to extract:
@@ -363,11 +363,11 @@ for (const widgetKey of WIDGET_TYPES) {
 
 STEP 1 — SCREENSHOT WIDGET SPEC:
 Use Figma MCP get_screenshot on:
-${sizeLink.url}
+{{FIGMA_FILLED:${sizeLink.label}|${sizeLink.url}}}
 ${featLink ? `
 STEP 2 — SCREENSHOT FEATURES/BEHAVIOR SPEC:
 Use Figma MCP get_screenshot on:
-${featLink.url}
+{{FIGMA_FILLED:${featLink.label}|${featLink.url}}}
 ` : ""}
 STEP ${featLink ? "3" : "2"} — READ FULL SPEC:
 Use Figma MCP get_design_context on ${featLink ? "both frames" : "the frame"}. Extract:
@@ -391,11 +391,11 @@ Screenshot the widget with sample data and compare against ${featLink ? "both Fi
 
 STEP 1 — SCREENSHOT WIDGET SPEC:
 Use Figma MCP get_screenshot on:
-${sizeLink.url}
+{{FIGMA_FILLED:${sizeLink.label}|${sizeLink.url}}}
 ${featLink ? `
 STEP 2 — SCREENSHOT FEATURES/BEHAVIOR SPEC:
 Use Figma MCP get_screenshot on:
-${featLink.url}
+{{FIGMA_FILLED:${featLink.label}|${featLink.url}}}
 ` : ""}
 STEP ${featLink ? "3" : "2"} — READ FULL SPEC:
 Use Figma MCP get_design_context on ${featLink ? "both frames" : "the frame"}. Extract:
@@ -466,8 +466,8 @@ for (const cc of crossCutting) {
 
 STEP 1 — SCREENSHOT:
 Use Figma MCP get_screenshot on:
-${cc.url}
-${cc.url2 ? `\nAlso screenshot validation states:\n${cc.url2}\n` : ""}
+{{FIGMA_FILLED:${cc.label}|${cc.url}}}
+${cc.url2 ? `\nAlso screenshot validation states:\n{{FIGMA_FILLED:${cc.label} validation|${cc.url2}}}\n` : ""}
 STEP 2 — READ SPEC:
 Use Figma MCP get_design_context to extract all relevant properties.
 
@@ -482,8 +482,8 @@ Screenshot and compare against the Figma spec.`,
 
 STEP 1 — SCREENSHOT:
 Use Figma MCP get_screenshot on:
-${cc.url}
-${cc.url2 ? `\nAlso screenshot validation states:\n${cc.url2}\n` : ""}
+{{FIGMA_FILLED:${cc.label}|${cc.url}}}
+${cc.url2 ? `\nAlso screenshot validation states:\n{{FIGMA_FILLED:${cc.label} validation|${cc.url2}}}\n` : ""}
 STEP 2 — READ SPEC:
 Use Figma MCP get_design_context to extract all relevant properties.
 

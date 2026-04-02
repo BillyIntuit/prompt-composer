@@ -189,7 +189,7 @@ const ANY_TOKEN_RE = /(\{\{(?:FIGMA_LINK|FILE_PATH|TARGET|FIGMA_FILLED:[^}]*|FIL
 
 function parsePrompt(text) {
   const parts = text.split(ANY_TOKEN_RE).filter(Boolean);
-  return parts.map((part, i) => {
+  const raw = parts.map((part, i) => {
     if (part === "{{FIGMA_LINK}}") return { type:"placeholder", kind:"figma", key:i };
     if (part === "{{FILE_PATH}}") return { type:"placeholder", kind:"file", key:i };
     if (part === "{{TARGET}}") return { type:"placeholder", kind:"target", key:i };
@@ -201,6 +201,18 @@ function parsePrompt(text) {
     if (ft) return { type:"filled", kind:"target", label:ft[1], value:ft[2], key:i };
     return { type:"text", value:part, key:i };
   });
+  // Ensure text segments exist between/around chips so the user always has a place to click and type
+  const result = [];
+  for (let i = 0; i < raw.length; i++) {
+    if (raw[i].type !== "text" && (i === 0 || result[result.length - 1].type !== "text")) {
+      result.push({ type:"text", value:"", key:`pad-${i}` });
+    }
+    result.push(raw[i]);
+  }
+  if (result.length === 0 || result[result.length - 1].type !== "text") {
+    result.push({ type:"text", value:"", key:`pad-end` });
+  }
+  return result;
 }
 
 function promptToPlainText(text) {
@@ -367,8 +379,10 @@ export default function PromptComposerV4() {
   }, [prompt]);
 
   const editorRef = useRef(null);
+  const textareaRef = useRef(null);
+  const uiFont = "'Avenir Next for Intuit','Avenir Next',system-ui,sans-serif";
   const mono = { fontFamily:"'JetBrains Mono',monospace" };
-  const accent = "#C4F464";
+  const accent = "#00d0e0";
 
   const showToast = useCallback((m) => { setToast(m); setTimeout(() => setToast(null), 2000); }, []);
   const copy = async (t, id) => { try { await navigator.clipboard.writeText(t); setCopiedId(id); showToast("Copied"); setTimeout(() => setCopiedId(null), 2000); } catch {} };
@@ -501,7 +515,7 @@ export default function PromptComposerV4() {
   const loadPreset = (p) => {
     setPrompt(p.template); setPopover(null); setSelectingFor(null);
     // Auto-switch to visual if preset has tokens
-    if (p.template.includes("{{FIGMA_LINK}}")||p.template.includes("{{FILE_PATH}}")||p.template.includes("{{TARGET}}")) setEditorMode("visual");
+    if (p.template.includes("{{")) setEditorMode("visual");
     showToast(`Loaded "${p.label}"`);
   };
 
@@ -571,38 +585,57 @@ export default function PromptComposerV4() {
   }, [popover]);
 
   // ── Styles ──
+  // IDS Button base tokens
+  const btnBase = { borderRadius:6, fontSize:12, fontWeight:500, cursor:"pointer", fontFamily:uiFont, transition:"all 0.15s", display:"inline-flex", alignItems:"center", justifyContent:"center", gap:4, lineHeight:1 };
   const S = {
-    card: { background:"#131313", border:"1px solid #1C1C1C", borderRadius:10, padding:"12px 14px", marginBottom:6, transition:"border-color 0.2s", cursor:"pointer" },
-    chip: { background:"#1A1A1A", border:"1px solid #222", borderRadius:5, padding:"3px 8px", fontSize:10, cursor:"pointer", ...mono, transition:"all 0.15s" },
-    input: { width:"100%", background:"#161616", border:"1px solid #222", borderRadius:7, padding:"8px 11px", color:"#E8E4DF", fontSize:12, fontFamily:"'Avenir Next',system-ui,sans-serif" },
-    sBtn: (a) => ({ background:a?accent:"#1A1A1A", color:a?"#0A0A0A":"#888", border:`1px solid ${a?accent:"#2A2A2A"}`, borderRadius:6, padding:"5px 12px", fontSize:11, cursor:"pointer", ...mono, fontWeight:a?600:400, transition:"all 0.15s" }),
+    card: { background:"#0a2e52", border:"1px solid #1a4a7a", borderRadius:10, padding:"12px 14px", marginBottom:6, transition:"border-color 0.2s", cursor:"pointer" },
+    chip: { background:"#103a68", border:"1px solid #1e5080", borderRadius:5, padding:"3px 8px", fontSize:10, cursor:"pointer", fontFamily:uiFont, transition:"all 0.15s" },
+    input: { width:"100%", background:"#0d3460", border:"1px solid #1e5080", borderRadius:7, padding:"8px 11px", color:"#ebf1f3", fontSize:12, fontFamily:uiFont },
+    // IDS Primary: solid accent fill, dark text — for primary actions (active toggles, CTA)
+    sBtn: (a) => ({ ...btnBase, background:a?accent:"transparent", color:a?"#00254a":"#a8bfcf", border:`1px solid ${a?accent:"#5d7a9a"}`, padding:"6px 14px", fontWeight:a?600:500 }),
+    // IDS Primary large: bigger padding for main CTA (Copy Prompt)
+    btnPrimaryLg: (enabled) => ({ ...btnBase, background:enabled?accent:"#103a68", color:enabled?"#00254a":"#5d7a9a", border:"none", borderRadius:8, padding:"10px 22px", fontWeight:600, cursor:enabled?"pointer":"default", boxShadow:enabled?"0 4px 20px rgba(0,208,224,0.1)":"none" }),
+    // IDS Secondary: transparent bg, border — for secondary actions (Clear, Cancel)
+    btnSecondary: { ...btnBase, background:"transparent", color:"#a8bfcf", border:"1px solid #5d7a9a", borderRadius:8, padding:"10px 14px" },
+    // IDS Tertiary/Ghost: no border, text only — for minor actions (Cancel link, Back)
+    btnGhost: { ...btnBase, background:"none", border:"none", color:"#7a93aa", padding:"4px 8px", fontSize:10 },
+    // IDS Icon button: square, for icon-only actions (close, help)
+    btnIcon: { ...btnBase, width:32, height:32, borderRadius:8, background:"transparent", border:"1px solid #5d7a9a", color:"#a8bfcf", padding:0, fontSize:15 },
+    // IDS Small: compact for inline use (category pills, phase toggles)
+    btnSmall: (a) => ({ ...btnBase, padding:"4px 10px", borderRadius:5, fontSize:10, background:a?"rgba(255,255,255,0.05)":"transparent", color:a?"#d5e3ec":"#5d7a9a", border:`1px solid ${a?"#5d7a9a":"transparent"}`, fontWeight:a?500:400 }),
+    // IDS Pill: for category/filter selections
+    btnPill: (a) => ({ ...btnBase, padding:"3px 10px", borderRadius:4, fontSize:9, background:a?accent:"transparent", color:a?"#00254a":"#7a93aa", border:`1px solid ${a?accent:"#5d7a9a"}`, fontWeight:a?600:400 }),
+    // IDS Confirm: full-width accent for forms (Save link, Save file)
+    btnConfirm: { ...btnBase, width:"100%", background:accent, color:"#00254a", border:"none", borderRadius:6, padding:7, fontWeight:600 },
+    // IDS Create/Save: flex for form dual-button layouts
+    btnCreate: (enabled) => ({ ...btnBase, flex:1, background:enabled?accent:"#103a68", color:enabled?"#00254a":"#5d7a9a", border:"none", borderRadius:7, padding:9, fontWeight:600, cursor:enabled?"pointer":"default" }),
   };
 
   /* ═══════════════════════════════════════════════
      RENDER
      ═══════════════════════════════════════════════ */
   return (
-    <div style={{ minHeight:"100vh", background:"#0A0A0A", color:"#E8E4DF", fontFamily:"'Avenir Next',system-ui,sans-serif" }}>
+    <div style={{ minHeight:"100vh", background:"#00254a", color:"#ebf1f3", fontFamily:uiFont }}>
       <style>{`
         @keyframes fadeIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
         @keyframes slideUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-        @keyframes selectGlow{0%,100%{box-shadow:0 0 0 2px rgba(196,244,100,0.2)}50%{box-shadow:0 0 0 4px rgba(196,244,100,0.35)}}
+        @keyframes selectGlow{0%,100%{box-shadow:0 0 0 2px rgba(0,208,224,0.2)}50%{box-shadow:0 0 0 4px rgba(0,208,224,0.35)}}
         *{box-sizing:border-box}
-        ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#333;border-radius:4px}
+        ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#1a4a7a;border-radius:4px}
         textarea:focus,input:focus{outline:none}
       `}</style>
 
       {/* Toast */}
-      {toast && <div style={{ position:"fixed",top:16,right:16,zIndex:300,background:accent,color:"#0A0A0A",padding:"9px 18px",borderRadius:8,fontSize:12,fontWeight:500,...mono,animation:"fadeIn 0.2s ease",boxShadow:"0 6px 24px rgba(196,244,100,0.2)" }}>{toast}</div>}
+      {toast && <div style={{ position:"fixed",top:16,right:16,zIndex:300,background:accent,color:"#00254a",padding:"9px 18px",borderRadius:8,fontSize:12,fontWeight:500,animation:"fadeIn 0.2s ease",boxShadow:"0 6px 24px rgba(0,208,224,0.2)" }}>{toast}</div>}
 
       {/* ─── HEADER ─── */}
-      <div style={{ padding:"12px 20px", borderBottom:"1px solid #181818", display:"flex", alignItems:"center", justifyContent:"space-between", background:"#0C0C0C" }}>
+      <div style={{ padding:"12px 20px", borderBottom:"1px solid #1a4a7a", display:"flex", alignItems:"center", justifyContent:"space-between", background:"#001a38" }}>
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <div style={{ width:30, height:30, borderRadius:8, background:`linear-gradient(135deg,${accent},#8BBF3A)`, display:"flex", alignItems:"center", justifyContent:"center", }}><IdsIcon name="logo" size={16} color="#0A0A0A" /></div>
+          <div style={{ width:30, height:30, borderRadius:8, background:`linear-gradient(135deg,${accent},#00b0c0)`, display:"flex", alignItems:"center", justifyContent:"center", }}><IdsIcon name="logo" size={16} color="#00254a" /></div>
           <div>
             <div style={{ fontSize:13, fontWeight:600, letterSpacing:"-0.02em" }}>Prompt Composer</div>
-            <div style={{ fontSize:9, color:"#444", ...mono }}>Apply → Review → Correct</div>
+            <div style={{ fontSize:9, color:"#5d7a9a" }}>Apply → Review → Correct</div>
           </div>
         </div>
         <div style={{ display:"flex", gap:6 }}>
@@ -610,34 +643,30 @@ export default function PromptComposerV4() {
           <button onClick={() => { setShowIDSComponents(!showIDSComponents); setShowDS(false); setShowSkills(false); setShowDataViz(false); }} style={S.sBtn(showIDSComponents)}><IdsIcon name="integration-puzzle" size={14} style={{ marginRight:4 }} /> IDS Components</button>
           <button onClick={() => { setShowDataViz(!showDataViz); setShowDS(false); setShowSkills(false); setShowIDSComponents(false); }} style={S.sBtn(showDataViz)}><IdsIcon name="chart-pie" size={14} style={{ marginRight:4 }} /> Data Viz</button>
           <button onClick={() => { setShowSkills(!showSkills); setShowDS(false); setShowIDSComponents(false); setShowDataViz(false); }} style={S.sBtn(showSkills)}>Skills</button>
-          <button onClick={() => setShowHelp(true)} style={{
-            width:32, height:32, borderRadius:8, display:"flex", alignItems:"center", justifyContent:"center",
-            background:"#1A1A1A", border:"1px solid #2A2A2A", color:"#888", fontSize:15, cursor:"pointer",
-            transition:"all 0.15s",
-          }}
-          onMouseEnter={e => { e.currentTarget.style.background = "#222"; e.currentTarget.style.color = accent; e.currentTarget.style.borderColor = accent; }}
-          onMouseLeave={e => { e.currentTarget.style.background = "#1A1A1A"; e.currentTarget.style.color = "#888"; e.currentTarget.style.borderColor = "#2A2A2A"; }}
+          <button onClick={() => setShowHelp(true)} style={S.btnIcon}
+          onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,208,224,0.08)"; e.currentTarget.style.color = accent; e.currentTarget.style.borderColor = accent; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#a8bfcf"; e.currentTarget.style.borderColor = "#5d7a9a"; }}
           title="Help & How-to Guide"><IdsIcon name="question" size={16} /></button>
         </div>
       </div>
 
       {/* ─── DS OVERLAY ─── */}
       {showDS && (
-        <div style={{ position:"absolute",top:56,left:0,right:0,zIndex:50,background:"rgba(8,8,8,0.97)",backdropFilter:"blur(12px)",borderBottom:"1px solid #181818",padding:"20px 24px",maxHeight:"70vh",overflowY:"auto",animation:"slideUp 0.2s ease" }}>
+        <div style={{ position:"absolute",top:56,left:0,right:0,zIndex:50,background:"rgba(0,26,56,0.97)",backdropFilter:"blur(12px)",borderBottom:"1px solid #1a4a7a",padding:"20px 24px",maxHeight:"70vh",overflowY:"auto",animation:"slideUp 0.2s ease" }}>
           <div style={{ display:"flex", justifyContent:"space-between", marginBottom:16 }}>
-            <div><div style={{ fontSize:15, fontWeight:600, marginBottom:4 }}><IdsIcon name="diamond" size={16} style={{ marginRight:6 }} />IES Design System Adoption</div><div style={{ fontSize:11, color:"#777", maxWidth:600 }}>Work through in order. Step 4 runs per-component. Steps 5a/5b handle icon inventory then export.</div></div>
-            <button onClick={() => setShowDS(false)} style={{ background:"none",border:"none",color:"#444",cursor:"pointer" }}><IdsIcon name="close" size={14} /></button>
+            <div><div style={{ fontSize:15, fontWeight:600, marginBottom:4 }}><IdsIcon name="diamond" size={16} style={{ marginRight:6 }} />IES Design System Adoption</div><div style={{ fontSize:11, color:"#9bb3c5", maxWidth:600 }}>Work through in order. Step 4 runs per-component. Steps 5a/5b handle icon inventory then export.</div></div>
+            <button onClick={() => setShowDS(false)} style={S.btnGhost}><IdsIcon name="close" size={14} /></button>
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))", gap:8 }}>
             {IES_STEPS.map((s,i) => (
               <button key={s.id} onClick={() => { loadPreset(s); setShowDS(false); }} style={{ ...S.card, textAlign:"left", animation:`slideUp 0.25s ease ${i*0.03}s both` }}
                 onMouseEnter={e => e.currentTarget.style.borderColor=accent}
-                onMouseLeave={e => e.currentTarget.style.borderColor="#1C1C1C"}>
+                onMouseLeave={e => e.currentTarget.style.borderColor="#1a4a7a"}>
                 <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:5 }}>
-                  <span style={{ width:24,height:24,borderRadius:6,background:"rgba(196,244,100,0.07)",display:"flex",alignItems:"center",justifyContent:"center",color:accent }}><IdsIcon name={s.icon} size={14} /></span>
-                  <span style={{ fontSize:11, fontWeight:500, color:"#E8E4DF" }}>{s.label}</span>
+                  <span style={{ width:24,height:24,borderRadius:6,background:"rgba(0,208,224,0.07)",display:"flex",alignItems:"center",justifyContent:"center",color:accent }}><IdsIcon name={s.icon} size={14} /></span>
+                  <span style={{ fontSize:11, fontWeight:500, color:"#ebf1f3" }}>{s.label}</span>
                 </div>
-                <div style={{ fontSize:9, color:"#444", ...mono, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{s.template.split("\n")[0]}</div>
+                <div style={{ fontSize:9, color:"#5d7a9a", ...mono, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{s.template.split("\n")[0]}</div>
               </button>
             ))}
           </div>
@@ -646,10 +675,10 @@ export default function PromptComposerV4() {
 
       {/* ─── IDS COMPONENTS OVERLAY ─── */}
       {showIDSComponents && (
-        <div style={{ position:"absolute",top:56,left:0,right:0,zIndex:50,background:"rgba(8,8,8,0.97)",backdropFilter:"blur(12px)",borderBottom:"1px solid #181818",padding:"20px 24px",maxHeight:"70vh",overflowY:"auto",animation:"slideUp 0.2s ease" }}>
+        <div style={{ position:"absolute",top:56,left:0,right:0,zIndex:50,background:"rgba(0,26,56,0.97)",backdropFilter:"blur(12px)",borderBottom:"1px solid #1a4a7a",padding:"20px 24px",maxHeight:"70vh",overflowY:"auto",animation:"slideUp 0.2s ease" }}>
           <div style={{ display:"flex", justifyContent:"space-between", marginBottom:16 }}>
-            <div><div style={{ fontSize:15, fontWeight:600, marginBottom:4 }}><IdsIcon name="integration-puzzle" size={16} style={{ marginRight:6 }} />IDS Component Presets</div><div style={{ fontSize:11, color:"#777", maxWidth:600 }}>{intentStep ? `${intentStep.label} — what do you want to do?` : "Pick a component to restyle or create."}</div></div>
-            <button onClick={() => { setShowIDSComponents(false); setIntentStep(null); }} style={{ background:"none",border:"none",color:"#444",cursor:"pointer" }}><IdsIcon name="close" size={14} /></button>
+            <div><div style={{ fontSize:15, fontWeight:600, marginBottom:4 }}><IdsIcon name="integration-puzzle" size={16} style={{ marginRight:6 }} />IDS Component Presets</div><div style={{ fontSize:11, color:"#9bb3c5", maxWidth:600 }}>{intentStep ? `${intentStep.label} — what do you want to do?` : "Pick a component to restyle or create."}</div></div>
+            <button onClick={() => { setShowIDSComponents(false); setIntentStep(null); }} style={S.btnGhost}><IdsIcon name="close" size={14} /></button>
           </div>
 
           {/* Intent step */}
@@ -660,36 +689,36 @@ export default function PromptComposerV4() {
                 <button onClick={() => { loadPreset({ ...intentStep.preset, phase:"apply" }); setShowIDSComponents(false); setIntentStep(null); }}
                   style={{ ...S.card, flex:1, maxWidth:220, textAlign:"center", padding:"16px 12px", cursor:"pointer" }}
                   onMouseEnter={e => e.currentTarget.style.borderColor="#64B5F6"}
-                  onMouseLeave={e => e.currentTarget.style.borderColor="#1C1C1C"}>
+                  onMouseLeave={e => e.currentTarget.style.borderColor="#1a4a7a"}>
                   <div style={{ marginBottom:6 }}><IdsIcon name="edit" size={20} color="#64B5F6" /></div>
-                  <div style={{ fontSize:12, fontWeight:600, marginBottom:4, color:"#E8E4DF" }}>Update existing</div>
-                  <div style={{ fontSize:10, color:"#555" }}>Restyle an existing component</div>
+                  <div style={{ fontSize:12, fontWeight:600, marginBottom:4, color:"#ebf1f3" }}>Update existing</div>
+                  <div style={{ fontSize:10, color:"#7a93aa" }}>Restyle an existing component</div>
                 </button>
                 <button onClick={() => { loadPreset({ ...intentStep.preset, template: intentStep.preset.createTemplate, phase:"apply" }); setShowIDSComponents(false); setIntentStep(null); }}
                   style={{ ...S.card, flex:1, maxWidth:220, textAlign:"center", padding:"16px 12px", cursor:"pointer" }}
                   onMouseEnter={e => e.currentTarget.style.borderColor=accent}
-                  onMouseLeave={e => e.currentTarget.style.borderColor="#1C1C1C"}>
+                  onMouseLeave={e => e.currentTarget.style.borderColor="#1a4a7a"}>
                   <div style={{ marginBottom:6 }}><IdsIcon name="create" size={20} color={accent} /></div>
-                  <div style={{ fontSize:12, fontWeight:600, marginBottom:4, color:"#E8E4DF" }}>Create from scratch</div>
-                  <div style={{ fontSize:10, color:"#555" }}>Build a new IDS-compliant component</div>
+                  <div style={{ fontSize:12, fontWeight:600, marginBottom:4, color:"#ebf1f3" }}>Create from scratch</div>
+                  <div style={{ fontSize:10, color:"#7a93aa" }}>Build a new IDS-compliant component</div>
                 </button>
               </div>
-              <button onClick={() => setIntentStep(null)} style={{ display:"block", margin:"12px auto 0", background:"none", border:"none", color:"#444", fontSize:10, cursor:"pointer", ...mono }}><IdsIcon name="arrow-left" size={12} style={{ marginRight:4 }} />Back to components</button>
+              <button onClick={() => setIntentStep(null)} style={{ ...S.btnGhost, display:"block", margin:"12px auto 0" }}><IdsIcon name="arrow-left" size={12} style={{ marginRight:4 }} />Back to components</button>
             </div>
           )}
 
           {/* Component grid (hidden during intent step) */}
           {(!intentStep || intentStep.overlay !== "ids") && Object.entries(IDS_LINK_LIBRARY.components.groups).map(([grpKey, grp]) => (
             <div key={grpKey} style={{ marginBottom:16 }}>
-              <div style={{ fontSize:10, ...mono, color:"#64B5F6", letterSpacing:"0.04em", marginBottom:6, textTransform:"uppercase" }}>{grp.label}</div>
+              <div style={{ fontSize:10, color:"#64B5F6", letterSpacing:"0.04em", fontWeight:600, marginBottom:6, textTransform:"uppercase" }}>{grp.label}</div>
               <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))", gap:8 }}>
                 {IDS_COMPONENT_PRESETS.filter(p => p.group === grp.label).map((p, i) => (
                   <button key={p.id} onClick={() => setIntentStep({ label: p.label, preset: p, overlay: "ids" })} style={{ ...S.card, textAlign:"left", animation:`slideUp 0.25s ease ${i*0.02}s both` }}
                     onMouseEnter={e => e.currentTarget.style.borderColor="#64B5F6"}
-                    onMouseLeave={e => e.currentTarget.style.borderColor="#1C1C1C"}>
+                    onMouseLeave={e => e.currentTarget.style.borderColor="#1a4a7a"}>
                     <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                       <span style={{ width:22,height:22,borderRadius:5,background:"rgba(100,181,246,0.07)",display:"flex",alignItems:"center",justifyContent:"center",color:"#64B5F6" }}><IdsIcon name="integration-puzzle" size={14} /></span>
-                      <span style={{ fontSize:11, fontWeight:500, color:"#E8E4DF" }}>{p.label}</span>
+                      <span style={{ fontSize:11, fontWeight:500, color:"#ebf1f3" }}>{p.label}</span>
                     </div>
                   </button>
                 ))}
@@ -701,10 +730,10 @@ export default function PromptComposerV4() {
 
       {/* ─── DATA VIZ OVERLAY ─── */}
       {showDataViz && (
-        <div style={{ position:"absolute",top:56,left:0,right:0,zIndex:50,background:"rgba(8,8,8,0.97)",backdropFilter:"blur(12px)",borderBottom:"1px solid #181818",padding:"20px 24px",maxHeight:"70vh",overflowY:"auto",animation:"slideUp 0.2s ease" }}>
+        <div style={{ position:"absolute",top:56,left:0,right:0,zIndex:50,background:"rgba(0,26,56,0.97)",backdropFilter:"blur(12px)",borderBottom:"1px solid #1a4a7a",padding:"20px 24px",maxHeight:"70vh",overflowY:"auto",animation:"slideUp 0.2s ease" }}>
           <div style={{ display:"flex", justifyContent:"space-between", marginBottom:16 }}>
-            <div><div style={{ fontSize:15, fontWeight:600, marginBottom:4 }}><IdsIcon name="chart-pie" size={16} style={{ marginRight:6 }} />Butterscotch Data Viz Presets</div><div style={{ fontSize:11, color:"#777", maxWidth:600 }}>{intentStep && intentStep.overlay==="dataviz" ? `${intentStep.label} — what do you want to do?` : "Pick a widget type and grid size."}</div></div>
-            <button onClick={() => { setShowDataViz(false); setIntentStep(null); }} style={{ background:"none",border:"none",color:"#444",cursor:"pointer" }}><IdsIcon name="close" size={14} /></button>
+            <div><div style={{ fontSize:15, fontWeight:600, marginBottom:4 }}><IdsIcon name="chart-pie" size={16} style={{ marginRight:6 }} />Butterscotch Data Viz Presets</div><div style={{ fontSize:11, color:"#9bb3c5", maxWidth:600 }}>{intentStep && intentStep.overlay==="dataviz" ? `${intentStep.label} — what do you want to do?` : "Pick a widget type and grid size."}</div></div>
+            <button onClick={() => { setShowDataViz(false); setIntentStep(null); }} style={S.btnGhost}><IdsIcon name="close" size={14} /></button>
           </div>
 
           {/* Intent step */}
@@ -715,36 +744,36 @@ export default function PromptComposerV4() {
                 <button onClick={() => { loadPreset({ ...intentStep.preset, phase:"apply" }); setShowDataViz(false); setIntentStep(null); }}
                   style={{ ...S.card, flex:1, maxWidth:220, textAlign:"center", padding:"16px 12px", cursor:"pointer" }}
                   onMouseEnter={e => e.currentTarget.style.borderColor="#F4A024"}
-                  onMouseLeave={e => e.currentTarget.style.borderColor="#1C1C1C"}>
+                  onMouseLeave={e => e.currentTarget.style.borderColor="#1a4a7a"}>
                   <div style={{ marginBottom:6 }}><IdsIcon name="edit" size={20} color="#F4A024" /></div>
-                  <div style={{ fontSize:12, fontWeight:600, marginBottom:4, color:"#E8E4DF" }}>Update existing</div>
-                  <div style={{ fontSize:10, color:"#555" }}>Restyle an existing widget</div>
+                  <div style={{ fontSize:12, fontWeight:600, marginBottom:4, color:"#ebf1f3" }}>Update existing</div>
+                  <div style={{ fontSize:10, color:"#7a93aa" }}>Restyle an existing widget</div>
                 </button>
                 <button onClick={() => { loadPreset({ ...intentStep.preset, template: intentStep.preset.createTemplate, phase:"apply" }); setShowDataViz(false); setIntentStep(null); }}
                   style={{ ...S.card, flex:1, maxWidth:220, textAlign:"center", padding:"16px 12px", cursor:"pointer" }}
                   onMouseEnter={e => e.currentTarget.style.borderColor=accent}
-                  onMouseLeave={e => e.currentTarget.style.borderColor="#1C1C1C"}>
+                  onMouseLeave={e => e.currentTarget.style.borderColor="#1a4a7a"}>
                   <div style={{ marginBottom:6 }}><IdsIcon name="create" size={20} color={accent} /></div>
-                  <div style={{ fontSize:12, fontWeight:600, marginBottom:4, color:"#E8E4DF" }}>Create from scratch</div>
-                  <div style={{ fontSize:10, color:"#555" }}>Build a new data viz widget</div>
+                  <div style={{ fontSize:12, fontWeight:600, marginBottom:4, color:"#ebf1f3" }}>Create from scratch</div>
+                  <div style={{ fontSize:10, color:"#7a93aa" }}>Build a new data viz widget</div>
                 </button>
               </div>
-              <button onClick={() => setIntentStep(null)} style={{ display:"block", margin:"12px auto 0", background:"none", border:"none", color:"#444", fontSize:10, cursor:"pointer", ...mono }}><IdsIcon name="arrow-left" size={12} style={{ marginRight:4 }} />Back to widgets</button>
+              <button onClick={() => setIntentStep(null)} style={{ ...S.btnGhost, display:"block", margin:"12px auto 0" }}><IdsIcon name="arrow-left" size={12} style={{ marginRight:4 }} />Back to widgets</button>
             </div>
           )}
 
           {/* Widget grid (hidden during intent step) */}
           {(!intentStep || intentStep.overlay !== "dataviz") && datavizGroups.map(([groupLabel, presets]) => (
               <div key={groupLabel} style={{ marginBottom:16 }}>
-                <div style={{ fontSize:10, ...mono, color:"#F4A024", letterSpacing:"0.04em", marginBottom:6, textTransform:"uppercase" }}>{groupLabel}</div>
+                <div style={{ fontSize:10, color:"#F4A024", letterSpacing:"0.04em", fontWeight:600, marginBottom:6, textTransform:"uppercase" }}>{groupLabel}</div>
                 <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))", gap:8 }}>
                   {presets.map((p, i) => (
                     <button key={p.id} onClick={() => setIntentStep({ label: p.label, preset: p, overlay: "dataviz" })} style={{ ...S.card, textAlign:"left", animation:`slideUp 0.25s ease ${i*0.02}s both` }}
                       onMouseEnter={e => e.currentTarget.style.borderColor="#F4A024"}
-                      onMouseLeave={e => e.currentTarget.style.borderColor="#1C1C1C"}>
+                      onMouseLeave={e => e.currentTarget.style.borderColor="#1a4a7a"}>
                       <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                         <span style={{ width:22,height:22,borderRadius:5,background:"rgba(244,160,36,0.07)",display:"flex",alignItems:"center",justifyContent:"center",color:"#F4A024" }}><IdsIcon name="chart-pie" size={14} /></span>
-                        <span style={{ fontSize:11, fontWeight:500, color:"#E8E4DF" }}>{p.label}</span>
+                        <span style={{ fontSize:11, fontWeight:500, color:"#ebf1f3" }}>{p.label}</span>
                       </div>
                     </button>
                   ))}
@@ -756,10 +785,10 @@ export default function PromptComposerV4() {
 
       {/* Skills */}
       {showSkills && (
-        <div style={{ padding:"10px 20px",borderBottom:"1px solid #161616",background:"#0B0B0B",animation:"slideUp 0.15s ease" }}>
+        <div style={{ padding:"10px 20px",borderBottom:"1px solid #1a4a7a",background:"#001a38",animation:"slideUp 0.15s ease" }}>
           <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
             {SKILLS.map(s => (
-              <div key={s.id} title={s.desc} style={{ padding:"4px 10px", borderRadius:5, fontSize:10, ...mono, background:"rgba(196,244,100,0.06)", color:accent, border:"1px solid rgba(196,244,100,0.15)" }}><IdsIcon name="checkmark" size={12} style={{ marginRight:4 }} />{s.name}</div>
+              <div key={s.id} title={s.desc} style={{ padding:"4px 10px", borderRadius:5, fontSize:10, background:"rgba(0,208,224,0.06)", color:accent, border:"1px solid rgba(0,208,224,0.15)" }}><IdsIcon name="checkmark" size={12} style={{ marginRight:4 }} />{s.name}</div>
             ))}
           </div>
         </div>
@@ -768,11 +797,11 @@ export default function PromptComposerV4() {
       <div style={{ display:"flex", height:`calc(100vh - ${56 + (showSkills?42:0)}px)` }}>
 
         {/* ═══ LEFT PANEL ═══ */}
-        <div style={{ width:320, borderRight:"1px solid #151515", display:"flex", flexDirection:"column", background:"#0C0C0C", flexShrink:0 }}>
+        <div style={{ width:320, borderRight:"1px solid #1a4a7a", display:"flex", flexDirection:"column", background:"#001a38", flexShrink:0 }}>
 
           {/* Selecting mode banner */}
           {selectingFor && (
-            <div style={{ padding:"10px 14px", background:"rgba(196,244,100,0.06)", borderBottom:`1px solid rgba(196,244,100,0.15)`, animation:"fadeIn 0.15s ease" }}>
+            <div style={{ padding:"10px 14px", background:"rgba(0,208,224,0.06)", borderBottom:`1px solid rgba(0,208,224,0.15)`, animation:"fadeIn 0.15s ease" }}>
               <div style={{ fontSize:11, fontWeight:600, color:accent, marginBottom:6 }}>
                 Select a {selectingFor.kind==="figma"?"Figma link":"file path"} for the highlighted chip
               </div>
@@ -785,23 +814,23 @@ export default function PromptComposerV4() {
                 <button onClick={() => handleInlineSubmit(selectingFor.kind)} disabled={!inlineNew.trim()} style={{ ...S.sBtn(!!inlineNew.trim()), padding:"6px 12px", fontSize:10 }}>Use</button>
               </div>
               {inlineNew.trim() && (
-                <label style={{ display:"flex", alignItems:"center", gap:6, marginTop:6, fontSize:10, color:"#666", cursor:"pointer" }}>
+                <label style={{ display:"flex", alignItems:"center", gap:6, marginTop:6, fontSize:10, color:"#8ba3b8", cursor:"pointer" }}>
                   <input type="checkbox" id="save-new" style={{ accentColor:accent }} />
                   Also save to library
                 </label>
               )}
-              <button onClick={() => setSelectingFor(null)} style={{ marginTop:6, background:"none", border:"none", color:"#555", fontSize:10, cursor:"pointer", ...mono }}><IdsIcon name="close" size={12} style={{ marginRight:4 }} />Cancel selection</button>
+              <button onClick={() => setSelectingFor(null)} style={{ ...S.btnGhost, marginTop:6 }}><IdsIcon name="close" size={12} style={{ marginRight:4 }} />Cancel selection</button>
             </div>
           )}
 
           {/* Tabs */}
-          <div style={{ display:"flex", borderBottom:"1px solid #151515" }}>
+          <div style={{ display:"flex", borderBottom:"1px solid #1a4a7a" }}>
             {[{ id:"presets", icon:"lightning", label:"Presets" }, { id:"figma", icon:"figma", label:"Figma" }, { id:"files", icon:"circle-plus", label:"Targets" }].map(t => (
               <button key={t.id} onClick={() => { setActivePanel(t.id); setShowCreate(false); }} style={{
-                flex:1, padding:"9px 6px", background:activePanel===t.id?"#111":"transparent",
-                border:"none", borderBottom:`2px solid ${activePanel===t.id ? (selectingFor && ((selectingFor.kind==="figma"&&t.id==="figma")||((selectingFor.kind==="file"||selectingFor.kind==="target")&&t.id==="files")) ? accent : accent) : "transparent"}`,
-                color: selectingFor && ((selectingFor.kind==="figma"&&t.id==="figma")||((selectingFor.kind==="file"||selectingFor.kind==="target")&&t.id==="files")) ? accent : activePanel===t.id?"#E8E4DF":"#555",
-                fontSize:11, cursor:"pointer", fontWeight:500, display:"flex", alignItems:"center", justifyContent:"center", gap:4,
+                ...btnBase, flex:1, padding:"9px 6px", background:activePanel===t.id?"#0a2e52":"transparent",
+                border:"none", borderRadius:0, borderBottom:`2px solid ${activePanel===t.id ? accent : "transparent"}`,
+                color: selectingFor && ((selectingFor.kind==="figma"&&t.id==="figma")||((selectingFor.kind==="file"||selectingFor.kind==="target")&&t.id==="files")) ? accent : activePanel===t.id?"#ebf1f3":"#7a93aa",
+                fontSize:11,
                 animation: selectingFor && ((selectingFor.kind==="figma"&&t.id==="figma")||((selectingFor.kind==="file"||selectingFor.kind==="target")&&t.id==="files")) ? "selectGlow 1.5s ease infinite" : "none",
               }}><IdsIcon name={t.icon} size={14} style={{ marginRight:2 }} />{t.label}</button>
             ))}
@@ -814,31 +843,31 @@ export default function PromptComposerV4() {
               <div>
                 <div style={{ display:"flex", gap:4, marginBottom:8 }}>
                   {[{ id:"all", l:"All", icon:null },{ id:"apply", l:"Apply", icon:"lightning" },{ id:"review", l:"Review", icon:"checklist" }].map(ph => (
-                    <button key={ph.id} onClick={() => setActivePhase(ph.id)} style={{ padding:"4px 10px", borderRadius:5, fontSize:10, cursor:"pointer", ...mono, background:activePhase===ph.id?"rgba(255,255,255,0.05)":"transparent", color:activePhase===ph.id?"#ddd":"#444", border:`1px solid ${activePhase===ph.id?"#2A2A2A":"transparent"}` }}>{ph.icon && <IdsIcon name={ph.icon} size={12} style={{ marginRight:3 }} />}{ph.l}</button>
+                    <button key={ph.id} onClick={() => setActivePhase(ph.id)} style={S.btnSmall(activePhase===ph.id)}>{ph.icon && <IdsIcon name={ph.icon} size={12} style={{ marginRight:3 }} />}{ph.l}</button>
                   ))}
                 </div>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
-                  <span style={{ fontSize:9, color:"#333", ...mono }}>{filtered.length} presets</span>
+                  <span style={{ fontSize:9, color:"#3a6a9a" }}>{filtered.length} presets</span>
                   <button onClick={() => { setShowCreate(true); setEditingId(null); setDraft({ label:"",icon:"star",category:"Custom",template:"" }); }} style={S.sBtn(false)}>+ Create</button>
                 </div>
                 <div style={{ display:"flex", flexWrap:"wrap", gap:3, marginBottom:10 }}>
-                  {allCats.map(c => <button key={c} onClick={() => setActiveCategory(c)} style={{ padding:"2px 8px", borderRadius:4, fontSize:9, cursor:"pointer", ...mono, background:activeCategory===c?accent:"#171717", color:activeCategory===c?"#0A0A0A":"#555", border:`1px solid ${activeCategory===c?accent:"#1C1C1C"}` }}>{c}</button>)}
+                  {allCats.map(c => <button key={c} onClick={() => setActiveCategory(c)} style={S.btnPill(activeCategory===c)}>{c}</button>)}
                 </div>
                 {filtered.map(p => (
                   <div key={p.id} style={S.card} onClick={() => loadPreset(p)}
                     onMouseEnter={e => e.currentTarget.style.borderColor=p.phase==="review"?"#64B5F6":accent}
-                    onMouseLeave={e => e.currentTarget.style.borderColor="#1C1C1C"}>
+                    onMouseLeave={e => e.currentTarget.style.borderColor="#1a4a7a"}>
                     <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:3 }}>
-                      <span style={{ width:22,height:22,borderRadius:5,background:"#1A1A1A",display:"flex",alignItems:"center",justifyContent:"center",color:p.phase==="review"?"#64B5F6":accent }}>{ICON_NAMES.includes(p.icon) ? <IdsIcon name={p.icon} size={14} /> : <span style={{ fontSize:11 }}>{p.icon}</span>}</span>
+                      <span style={{ width:22,height:22,borderRadius:5,background:"#103a68",display:"flex",alignItems:"center",justifyContent:"center",color:p.phase==="review"?"#64B5F6":accent }}>{ICON_NAMES.includes(p.icon) ? <IdsIcon name={p.icon} size={14} /> : <span style={{ fontSize:11 }}>{p.icon}</span>}</span>
                       <span style={{ fontSize:11, fontWeight:500 }}>{p.label}</span>
-                      {p.custom && <span style={{ fontSize:7, ...mono, color:"#F4A024", background:"rgba(244,160,36,0.08)", padding:"1px 5px", borderRadius:3 }}>custom</span>}
-                      <span style={{ marginLeft:"auto", fontSize:8, ...mono, color:p.phase==="review"?"#64B5F6":"#444", background:p.phase==="review"?"rgba(100,181,246,0.06)":"#0F0F0F", padding:"1px 5px", borderRadius:3 }}>{p.phase}</span>
+                      {p.custom && <span style={{ fontSize:7, color:"#F4A024", background:"rgba(244,160,36,0.08)", padding:"1px 5px", borderRadius:3, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.03em" }}>custom</span>}
+                      <span style={{ marginLeft:"auto", fontSize:8, color:p.phase==="review"?"#64B5F6":"#5d7a9a", background:p.phase==="review"?"rgba(100,181,246,0.06)":"#002040", padding:"1px 5px", borderRadius:3, fontWeight:500 }}>{p.phase}</span>
                     </div>
-                    <div style={{ fontSize:9, color:"#444", ...mono, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{p.template.split("\n")[0]}</div>
+                    <div style={{ fontSize:9, color:"#5d7a9a", ...mono, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{p.template.split("\n")[0]}</div>
                     {p.custom && (
                       <div style={{ display:"flex", gap:3, marginTop:6 }} onClick={e => e.stopPropagation()}>
-                        <button onClick={() => { setEditingId(p.id); setDraft({ label:p.label,icon:p.icon,category:p.category,template:p.template }); setShowCreate(true); }} style={{ ...S.chip, color:"#777" }}>Edit</button>
-                        <button onClick={() => { setPresets(pr => pr.filter(x => x.id!==p.id)); showToast("Deleted"); }} style={{ ...S.chip, color:"#f44" }}>Delete</button>
+                        <button onClick={() => { setEditingId(p.id); setDraft({ label:p.label,icon:p.icon,category:p.category,template:p.template }); setShowCreate(true); }} style={{ ...S.btnGhost, color:"#9bb3c5", fontSize:10 }}>Edit</button>
+                        <button onClick={() => { setPresets(pr => pr.filter(x => x.id!==p.id)); showToast("Deleted"); }} style={{ ...S.btnGhost, color:"#b61a37", fontSize:10 }}>Delete</button>
                       </div>
                     )}
                   </div>
@@ -851,22 +880,22 @@ export default function PromptComposerV4() {
               <div style={{ animation:"slideUp 0.15s ease" }}>
                 <div style={{ display:"flex", justifyContent:"space-between", marginBottom:12 }}>
                   <span style={{ fontSize:12, fontWeight:600 }}>{editingId?"Edit":"Create"} Preset</span>
-                  <button onClick={() => { setShowCreate(false); setEditingId(null); }} style={{ background:"none",border:"none",color:"#444",fontSize:16,cursor:"pointer" }}><IdsIcon name="close" size={14} /></button>
+                  <button onClick={() => { setShowCreate(false); setEditingId(null); }} style={S.btnGhost}><IdsIcon name="close" size={14} /></button>
                 </div>
                 <input value={draft.label} onChange={e => setDraft(d => ({...d,label:e.target.value}))} placeholder="Preset name" style={{ ...S.input, marginBottom:10 }} />
-                <div style={{ fontSize:9, color:"#444", ...mono, marginBottom:4 }}>ICON</div>
+                <div style={{ fontSize:9, color:"#5d7a9a", fontWeight:600, letterSpacing:"0.03em", textTransform:"uppercase", marginBottom:4 }}>ICON</div>
                 <div style={{ display:"flex", flexWrap:"wrap", gap:3, marginBottom:10 }}>
-                  {ICON_OPTS.map(ic => <button key={ic} onClick={() => setDraft(d => ({...d,icon:ic}))} style={{ width:28,height:28,borderRadius:5,border:`1px solid ${draft.icon===ic?accent:"#1E1E1E"}`,background:draft.icon===ic?"rgba(196,244,100,0.07)":"#141414",color:draft.icon===ic?accent:"#666",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center" }}><IdsIcon name={ic} size={14} /></button>)}
+                  {ICON_OPTS.map(ic => <button key={ic} onClick={() => setDraft(d => ({...d,icon:ic}))} style={{ width:28,height:28,borderRadius:6,border:`1px solid ${draft.icon===ic?accent:"#5d7a9a"}`,background:draft.icon===ic?"rgba(0,208,224,0.08)":"transparent",color:draft.icon===ic?accent:"#a8bfcf",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.15s" }}><IdsIcon name={ic} size={14} /></button>)}
                 </div>
-                <div style={{ fontSize:9, color:"#444", ...mono, marginBottom:4 }}>CATEGORY</div>
+                <div style={{ fontSize:9, color:"#5d7a9a", fontWeight:600, letterSpacing:"0.03em", textTransform:"uppercase", marginBottom:4 }}>CATEGORY</div>
                 <div style={{ display:"flex", flexWrap:"wrap", gap:3, marginBottom:10 }}>
-                  {CAT_OPTS.map(c => <button key={c} onClick={() => setDraft(d => ({...d,category:c}))} style={{ padding:"3px 8px",borderRadius:4,fontSize:9,cursor:"pointer",...mono,background:draft.category===c?accent:"#171717",color:draft.category===c?"#0A0A0A":"#555",border:`1px solid ${draft.category===c?accent:"#1C1C1C"}` }}>{c}</button>)}
+                  {CAT_OPTS.map(c => <button key={c} onClick={() => setDraft(d => ({...d,category:c}))} style={S.btnPill(draft.category===c)}>{c}</button>)}
                 </div>
-                <div style={{ fontSize:9, color:"#444", ...mono, marginBottom:4 }}>TEMPLATE <span style={{ color:"#333" }}>— use {"{{FIGMA_LINK}}"} {"{{TARGET}}"}</span></div>
+                <div style={{ fontSize:9, color:"#5d7a9a", fontWeight:600, letterSpacing:"0.03em", textTransform:"uppercase", marginBottom:4 }}>TEMPLATE <span style={{ color:"#3a6a9a" }}>— use {"{{FIGMA_LINK}}"} {"{{TARGET}}"}</span></div>
                 <textarea value={draft.template} onChange={e => setDraft(d => ({...d,template:e.target.value}))} placeholder="STEP 1 — SCREENSHOT:\n{{FIGMA_LINK}}..." style={{ ...S.input, height:160, ...mono, fontSize:10, lineHeight:1.7, resize:"vertical", marginBottom:10 }} />
                 <div style={{ display:"flex", gap:6 }}>
-                  <button onClick={savePreset} disabled={!draft.label.trim()||!draft.template.trim()} style={{ flex:1, background:draft.label.trim()&&draft.template.trim()?accent:"#1A1A1A", color:draft.label.trim()&&draft.template.trim()?"#0A0A0A":"#444", border:"none", borderRadius:7, padding:9, fontSize:11, fontWeight:600, cursor:"pointer" }}>{editingId?"Save":"Create"}</button>
-                  <button onClick={() => setShowCreate(false)} style={{ background:"transparent", border:"1px solid #222", borderRadius:7, padding:"9px 14px", color:"#555", fontSize:11, cursor:"pointer" }}>Cancel</button>
+                  <button onClick={savePreset} disabled={!draft.label.trim()||!draft.template.trim()} style={S.btnCreate(draft.label.trim()&&draft.template.trim())}>{editingId?"Save":"Create"}</button>
+                  <button onClick={() => setShowCreate(false)} style={{ ...S.btnSecondary, padding:"9px 14px", fontSize:11 }}>Cancel</button>
                 </div>
               </div>
             )}
@@ -890,11 +919,11 @@ export default function PromptComposerV4() {
                     onClick={() => !selectingFor && setMyLinksCollapsed(!myLinksCollapsed)}
                     style={{ display:"flex", alignItems:"center", justifyContent:"space-between", cursor:"pointer", marginBottom:6, padding:"4px 0" }}
                   >
-                    <span style={{ fontSize:10, fontWeight:600, color:"#888", ...mono, letterSpacing:"0.04em" }}>
+                    <span style={{ fontSize:10, fontWeight:600, color:"#a8bfcf", letterSpacing:"0.04em" }}>
                       <IdsIcon name={myLinksCollapsed ? "chevron-right" : "chevron-down"} size={12} style={{ marginRight:4 }} />MY LINKS
                     </span>
                     <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                      <span style={{ fontSize:9, color:"#333", ...mono }}>{filteredMyLinks.length}</span>
+                      <span style={{ fontSize:9, color:"#3a6a9a" }}>{filteredMyLinks.length}</span>
                       {!selectingFor && !myLinksCollapsed && (
                         <button onClick={(e) => { e.stopPropagation(); setAddingLink(!addingLink); }} style={S.sBtn(addingLink)}>{addingLink?"Cancel":"+ Add"}</button>
                       )}
@@ -907,32 +936,32 @@ export default function PromptComposerV4() {
                         <div style={{ ...S.card, cursor:"default", animation:"slideUp 0.1s ease", padding:12, marginBottom:10 }}>
                           <input value={newLink.label} onChange={e => setNewLink(l => ({...l,label:e.target.value}))} placeholder="Label" style={{ ...S.input, marginBottom:6 }} />
                           <input value={newLink.url} onChange={e => setNewLink(l => ({...l,url:e.target.value}))} placeholder="Figma URL" style={{ ...S.input, fontSize:10, ...mono, marginBottom:7 }} onKeyDown={e => e.key==="Enter"&&addFigma()} />
-                          <button onClick={addFigma} style={{ width:"100%", background:accent, color:"#0A0A0A", border:"none", borderRadius:6, padding:7, fontSize:11, fontWeight:600, cursor:"pointer" }}>Save</button>
+                          <button onClick={addFigma} style={S.btnConfirm}>Save</button>
                         </div>
                       )}
                       {filteredMyLinks.sort((a,b) => b.lastUsed-a.lastUsed).map(l => (
-                        <div key={l.id} style={{ ...S.card, cursor:selectingFor?"pointer":"default", borderColor: selectingFor ? "#2A2A2A" : "#1C1C1C" }}
+                        <div key={l.id} style={{ ...S.card, cursor:selectingFor?"pointer":"default", borderColor: selectingFor ? "#2a5a8a" : "#1a4a7a" }}
                           onClick={() => selectingFor && selectingFor.kind==="figma" ? handleSelectItem("figma", l.label, l.url, l.id) : null}
-                          onMouseEnter={e => e.currentTarget.style.borderColor = selectingFor&&selectingFor.kind==="figma" ? accent : "#2A2A2A"}
-                          onMouseLeave={e => e.currentTarget.style.borderColor = selectingFor ? "#2A2A2A" : "#1C1C1C"}>
+                          onMouseEnter={e => e.currentTarget.style.borderColor = selectingFor&&selectingFor.kind==="figma" ? accent : "#2a5a8a"}
+                          onMouseLeave={e => e.currentTarget.style.borderColor = selectingFor ? "#2a5a8a" : "#1a4a7a"}>
                           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:3 }}>
                             <span style={{ fontSize:11, fontWeight:500 }}><IdsIcon name="figma" size={12} style={{ marginRight:4 }} />{l.label}</span>
                             {selectingFor && selectingFor.kind==="figma" ? (
-                              <span style={{ fontSize:10, color:accent, ...mono }}><IdsIcon name="arrow-left" size={10} style={{ marginRight:3 }} />Use this</span>
+                              <span style={{ fontSize:10, color:accent, fontWeight:500 }}><IdsIcon name="arrow-left" size={10} style={{ marginRight:3 }} />Use this</span>
                             ) : (
-                              <button onClick={(e) => { e.stopPropagation(); setFigmaLinks(p => p.filter(x => x.id!==l.id)); }} style={{ background:"none",border:"none",color:"#2A2A2A",cursor:"pointer",fontSize:12 }}><IdsIcon name="close" size={12} /></button>
+                              <button onClick={(e) => { e.stopPropagation(); setFigmaLinks(p => p.filter(x => x.id!==l.id)); }} style={{ ...S.btnGhost, color:"#5d7a9a" }}><IdsIcon name="close" size={12} /></button>
                             )}
                           </div>
-                          <div style={{ fontSize:9, color:"#444", ...mono, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginBottom: selectingFor ? 0 : 8 }}>{l.url}</div>
+                          <div style={{ fontSize:9, color:"#5d7a9a", ...mono, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginBottom: selectingFor ? 0 : 8 }}>{l.url}</div>
                           {!selectingFor && (
                             <div style={{ display:"flex", gap:4 }}>
-                              <button onClick={() => copy(l.url, l.id)} style={{ flex:1, ...S.chip, color:copiedId===l.id?accent:"#666", textAlign:"center" }}><IdsIcon name={copiedId===l.id?"checkmark":"copy"} size={12} style={{ marginRight:3 }} />Copy</button>
+                              <button onClick={() => copy(l.url, l.id)} style={{ ...S.btnSmall(false), flex:1, color:copiedId===l.id?accent:"#a8bfcf", textAlign:"center" }}><IdsIcon name={copiedId===l.id?"checkmark":"copy"} size={12} style={{ marginRight:3 }} />Copy</button>
                             </div>
                           )}
                         </div>
                       ))}
                       {filteredMyLinks.length === 0 && !addingLink && (
-                        <div style={{ fontSize:10, color:"#333", ...mono, padding:"8px 0", textAlign:"center" }}>
+                        <div style={{ fontSize:10, color:"#3a6a9a", padding:"8px 0", textAlign:"center" }}>
                           {figmaSearchLower ? "No matches" : "No saved links yet"}
                         </div>
                       )}
@@ -941,32 +970,32 @@ export default function PromptComposerV4() {
                 </div>
 
                 {/* ── IDS LIBRARY section ── */}
-                <div style={{ borderTop:"1px solid #1A1A1A", paddingTop:10 }}>
-                  <div style={{ fontSize:10, fontWeight:600, color:"#888", ...mono, letterSpacing:"0.04em", marginBottom:8 }}>
+                <div style={{ borderTop:"1px solid #1a4a7a", paddingTop:10 }}>
+                  <div style={{ fontSize:10, fontWeight:600, color:"#a8bfcf", letterSpacing:"0.04em", marginBottom:8 }}>
                     IDS LIBRARY
                   </div>
 
                   {/* Search results mode */}
                   {figmaSearchLower && filteredLibraryLinks ? (
                     <div>
-                      <div style={{ fontSize:9, color:"#444", ...mono, marginBottom:6 }}>{filteredLibraryLinks.length} results</div>
+                      <div style={{ fontSize:9, color:"#5d7a9a", marginBottom:6 }}>{filteredLibraryLinks.length} results</div>
                       {filteredLibraryLinks.map(link => (
-                        <div key={link.id} style={{ ...S.card, cursor:selectingFor?"pointer":"default", borderLeft:`2px solid ${link.categoryColor}`, borderColor: selectingFor ? "#2A2A2A" : "#1C1C1C", borderLeftColor: link.categoryColor }}
+                        <div key={link.id} style={{ ...S.card, cursor:selectingFor?"pointer":"default", borderLeft:`2px solid ${link.categoryColor}`, borderColor: selectingFor ? "#2a5a8a" : "#1a4a7a", borderLeftColor: link.categoryColor }}
                           onClick={() => selectingFor && selectingFor.kind==="figma" ? handleSelectItem("figma", link.label, link.url, link.id) : null}
-                          onMouseEnter={e => { e.currentTarget.style.borderColor = selectingFor ? accent : "#2A2A2A"; e.currentTarget.style.borderLeftColor = link.categoryColor; }}
-                          onMouseLeave={e => { e.currentTarget.style.borderColor = selectingFor ? "#2A2A2A" : "#1C1C1C"; e.currentTarget.style.borderLeftColor = link.categoryColor; }}>
+                          onMouseEnter={e => { e.currentTarget.style.borderColor = selectingFor ? accent : "#2a5a8a"; e.currentTarget.style.borderLeftColor = link.categoryColor; }}
+                          onMouseLeave={e => { e.currentTarget.style.borderColor = selectingFor ? "#2a5a8a" : "#1a4a7a"; e.currentTarget.style.borderLeftColor = link.categoryColor; }}>
                           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:2 }}>
                             <span style={{ fontSize:11, fontWeight:500 }}><IdsIcon name={link.categoryIcon} size={12} style={{ marginRight:4 }} />{link.label}</span>
                             {selectingFor && selectingFor.kind==="figma" ? (
-                              <span style={{ fontSize:10, color:accent, ...mono }}><IdsIcon name="arrow-left" size={10} style={{ marginRight:3 }} />Use this</span>
+                              <span style={{ fontSize:10, color:accent, fontWeight:500 }}><IdsIcon name="arrow-left" size={10} style={{ marginRight:3 }} />Use this</span>
                             ) : (
                               <div style={{ display:"flex", gap:3 }}>
-                                <button onClick={(e) => { e.stopPropagation(); saveLibraryLinkToMyLinks(link); }} style={{ ...S.chip, color:"#555", fontSize:9 }}><IdsIcon name="star" size={12} style={{ marginRight:3 }} />Save</button>
-                                <button onClick={(e) => { e.stopPropagation(); copy(link.url, link.id); }} style={{ ...S.chip, color:copiedId===link.id?accent:"#555", fontSize:9 }}><IdsIcon name={copiedId===link.id?"checkmark":"copy"} size={12} /></button>
+                                <button onClick={(e) => { e.stopPropagation(); saveLibraryLinkToMyLinks(link); }} style={{ ...S.btnGhost, color:"#7a93aa", fontSize:9 }}><IdsIcon name="star" size={12} style={{ marginRight:3 }} />Save</button>
+                                <button onClick={(e) => { e.stopPropagation(); copy(link.url, link.id); }} style={{ ...S.btnGhost, color:copiedId===link.id?accent:"#7a93aa", fontSize:9 }}><IdsIcon name={copiedId===link.id?"checkmark":"copy"} size={12} /></button>
                               </div>
                             )}
                           </div>
-                          <div style={{ fontSize:8, color:"#333", ...mono }}>{link.groupLabel}</div>
+                          <div style={{ fontSize:8, color:"#3a6a9a" }}>{link.groupLabel}</div>
                         </div>
                       ))}
                     </div>
@@ -982,10 +1011,10 @@ export default function PromptComposerV4() {
                             onClick={() => setCollapsedCats(prev => ({...prev, [catKey]: !prev[catKey]}))}
                             style={{ display:"flex", alignItems:"center", justifyContent:"space-between", cursor:"pointer", padding:"5px 0", borderLeft:`2px solid ${cat.color}`, paddingLeft:8, marginBottom:4 }}
                           >
-                            <span style={{ fontSize:11, fontWeight:600, color:"#ccc" }}>
+                            <span style={{ fontSize:11, fontWeight:600, color:"#c8dae5" }}>
                               <IdsIcon name={catCollapsed ? "chevron-right" : "chevron-down"} size={12} style={{ marginRight:4 }} /><IdsIcon name={cat.icon} size={14} style={{ marginRight:4 }} />{cat.label}
                             </span>
-                            <span style={{ fontSize:9, color:"#333", ...mono, background:"#141414", padding:"1px 6px", borderRadius:3 }}>{catLinkCount}</span>
+                            <span style={{ fontSize:9, color:"#3a6a9a", background:"#0d3460", padding:"1px 6px", borderRadius:3 }}>{catLinkCount}</span>
                           </div>
 
                           {!catCollapsed && Object.entries(cat.groups).map(([grpKey, grp]) => {
@@ -997,25 +1026,25 @@ export default function PromptComposerV4() {
                                   onClick={() => setCollapsedGroups(prev => ({...prev, [`${catKey}-${grpKey}`]: !prev[`${catKey}-${grpKey}`]}))}
                                   style={{ display:"flex", alignItems:"center", justifyContent:"space-between", cursor:"pointer", padding:"3px 0", marginBottom:2 }}
                                 >
-                                  <span style={{ fontSize:10, color:"#666", ...mono }}>
+                                  <span style={{ fontSize:10, color:"#8ba3b8" }}>
                                     <IdsIcon name={grpCollapsed ? "chevron-right" : "chevron-down"} size={10} style={{ marginRight:3 }} />{grp.label}
                                   </span>
-                                  <span style={{ fontSize:8, color:"#2A2A2A", ...mono }}>{grp.links.length}</span>
+                                  <span style={{ fontSize:8, color:"#2a5a8a" }}>{grp.links.length}</span>
                                 </div>
 
                                 {!grpCollapsed && grp.links.map(link => (
-                                  <div key={link.id} style={{ ...S.card, marginLeft:8, cursor:selectingFor?"pointer":"default", borderColor: selectingFor ? "#2A2A2A" : "#1C1C1C", padding:"8px 10px" }}
+                                  <div key={link.id} style={{ ...S.card, marginLeft:8, cursor:selectingFor?"pointer":"default", borderColor: selectingFor ? "#2a5a8a" : "#1a4a7a", padding:"8px 10px" }}
                                     onClick={() => selectingFor && selectingFor.kind==="figma" ? handleSelectItem("figma", link.label, link.url, link.id) : null}
-                                    onMouseEnter={e => e.currentTarget.style.borderColor = selectingFor&&selectingFor.kind==="figma" ? accent : "#2A2A2A"}
-                                    onMouseLeave={e => e.currentTarget.style.borderColor = selectingFor ? "#2A2A2A" : "#1C1C1C"}>
+                                    onMouseEnter={e => e.currentTarget.style.borderColor = selectingFor&&selectingFor.kind==="figma" ? accent : "#2a5a8a"}
+                                    onMouseLeave={e => e.currentTarget.style.borderColor = selectingFor ? "#2a5a8a" : "#1a4a7a"}>
                                     <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
                                       <span style={{ fontSize:10, fontWeight:500 }}>{link.label}</span>
                                       {selectingFor && selectingFor.kind==="figma" ? (
-                                        <span style={{ fontSize:9, color:accent, ...mono }}><IdsIcon name="arrow-left" size={10} style={{ marginRight:3 }} />Use</span>
+                                        <span style={{ fontSize:9, color:accent, fontWeight:500 }}><IdsIcon name="arrow-left" size={10} style={{ marginRight:3 }} />Use</span>
                                       ) : (
                                         <div style={{ display:"flex", gap:3 }}>
-                                          <button onClick={(e) => { e.stopPropagation(); saveLibraryLinkToMyLinks(link); }} style={{ ...S.chip, color:"#555", fontSize:8, padding:"2px 5px" }}><IdsIcon name="star" size={12} /></button>
-                                          <button onClick={(e) => { e.stopPropagation(); copy(link.url, link.id); }} style={{ ...S.chip, color:copiedId===link.id?accent:"#555", fontSize:8, padding:"2px 5px" }}><IdsIcon name={copiedId===link.id?"checkmark":"copy"} size={12} /></button>
+                                          <button onClick={(e) => { e.stopPropagation(); saveLibraryLinkToMyLinks(link); }} style={{ ...S.btnGhost, color:"#7a93aa", fontSize:8 }}><IdsIcon name="star" size={12} /></button>
+                                          <button onClick={(e) => { e.stopPropagation(); copy(link.url, link.id); }} style={{ ...S.btnGhost, color:copiedId===link.id?accent:"#7a93aa", fontSize:8 }}><IdsIcon name={copiedId===link.id?"checkmark":"copy"} size={12} /></button>
                                         </div>
                                       )}
                                     </div>
@@ -1036,7 +1065,7 @@ export default function PromptComposerV4() {
             {activePanel==="files" && (
               <div>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
-                  <span style={{ fontSize:9, color:"#333", ...mono }}>{filePaths.length} targets</span>
+                  <span style={{ fontSize:9, color:"#3a6a9a" }}>{filePaths.length} targets</span>
                   {!selectingFor && <button onClick={() => setAddingFile(!addingFile)} style={S.sBtn(addingFile)}>{addingFile?"Cancel":"+ Add"}</button>}
                 </div>
                 {addingFile && !selectingFor && (
@@ -1044,7 +1073,7 @@ export default function PromptComposerV4() {
                     <div style={{ display:"flex", gap:4, marginBottom:8 }}>
                       {[{ l:"File path", v:false }, { l:"Description", v:true }].map(opt => (
                         <button key={opt.l} onClick={() => setNewFile(f => ({...f,isDescription:opt.v}))}
-                          style={{ ...S.chip, flex:1, textAlign:"center", color: newFile.isDescription===opt.v ? accent : "#555", borderColor: newFile.isDescription===opt.v ? accent : "#1C1C1C" }}>
+                          style={{ ...S.btnSmall(newFile.isDescription===opt.v), flex:1, textAlign:"center", color: newFile.isDescription===opt.v ? accent : "#7a93aa", borderColor: newFile.isDescription===opt.v ? accent : "transparent" }}>
                           <IdsIcon name={opt.v?"comment":"document"} size={12} style={{ marginRight:4 }} />{opt.l}
                         </button>
                       ))}
@@ -1059,26 +1088,26 @@ export default function PromptComposerV4() {
                         <button onClick={async () => { const fp = await window.electronAPI.dialog.openFile(); if (fp) { setNewFile(f => ({...f, path:fp, label: f.label || fp.split("/").pop()})); } }} style={{ ...S.sBtn(false), padding:"6px 10px", fontSize:10, whiteSpace:"nowrap" }}><IdsIcon name="document" size={12} style={{ marginRight:3 }} />Browse</button>
                       )}
                     </div>
-                    <button onClick={addFileItem} style={{ width:"100%", background:accent, color:"#0A0A0A", border:"none", borderRadius:6, padding:7, fontSize:11, fontWeight:600, cursor:"pointer" }}>Save</button>
+                    <button onClick={addFileItem} style={S.btnConfirm}>Save</button>
                   </div>
                 )}
                 {filePaths.map(f => (
-                  <div key={f.id} style={{ ...S.card, cursor:selectingFor?"pointer":"default", borderColor: selectingFor ? "#2A2A2A" : "#1C1C1C" }}
+                  <div key={f.id} style={{ ...S.card, cursor:selectingFor?"pointer":"default", borderColor: selectingFor ? "#2a5a8a" : "#1a4a7a" }}
                     onClick={() => selectingFor && (selectingFor.kind==="file"||selectingFor.kind==="target") ? handleSelectItem(selectingFor.kind, f.label, f.path, f.id) : null}
-                    onMouseEnter={e => e.currentTarget.style.borderColor = selectingFor&&(selectingFor.kind==="file"||selectingFor.kind==="target") ? accent : "#2A2A2A"}
-                    onMouseLeave={e => e.currentTarget.style.borderColor = selectingFor ? "#2A2A2A" : "#1C1C1C"}>
+                    onMouseEnter={e => e.currentTarget.style.borderColor = selectingFor&&(selectingFor.kind==="file"||selectingFor.kind==="target") ? accent : "#2a5a8a"}
+                    onMouseLeave={e => e.currentTarget.style.borderColor = selectingFor ? "#2a5a8a" : "#1a4a7a"}>
                     <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:3 }}>
                       <span style={{ fontSize:11, fontWeight:500 }}><IdsIcon name={f.isDescription?"comment":"document"} size={12} style={{ marginRight:4 }} />{f.label}</span>
                       {selectingFor && (selectingFor.kind==="file"||selectingFor.kind==="target") ? (
-                        <span style={{ fontSize:10, color:accent, ...mono }}><IdsIcon name="arrow-left" size={10} style={{ marginRight:3 }} />Use this</span>
+                        <span style={{ fontSize:10, color:accent, fontWeight:500 }}><IdsIcon name="arrow-left" size={10} style={{ marginRight:3 }} />Use this</span>
                       ) : (
-                        <button onClick={(e) => { e.stopPropagation(); setFilePaths(p => p.filter(x => x.id!==f.id)); }} style={{ background:"none",border:"none",color:"#2A2A2A",cursor:"pointer",fontSize:12 }}><IdsIcon name="close" size={12} /></button>
+                        <button onClick={(e) => { e.stopPropagation(); setFilePaths(p => p.filter(x => x.id!==f.id)); }} style={{ ...S.btnGhost, color:"#5d7a9a" }}><IdsIcon name="close" size={12} /></button>
                       )}
                     </div>
-                    <div style={{ fontSize:10, color:f.isDescription?"#777":accent, ...(f.isDescription?{}:mono), opacity:f.isDescription?1:.5, marginBottom: selectingFor ? 0 : 8 }}>{f.path}</div>
+                    <div style={{ fontSize:10, color:f.isDescription?"#9bb3c5":accent, ...(f.isDescription?{}:mono), opacity:f.isDescription?1:.5, marginBottom: selectingFor ? 0 : 8 }}>{f.path}</div>
                     {!selectingFor && (
                       <div style={{ display:"flex", gap:4 }}>
-                        <button onClick={() => copy(f.path, f.id)} style={{ flex:1, ...S.chip, color:copiedId===f.id?accent:"#666", textAlign:"center" }}><IdsIcon name={copiedId===f.id?"checkmark":"copy"} size={12} style={{ marginRight:3 }} />Copy</button>
+                        <button onClick={() => copy(f.path, f.id)} style={{ ...S.btnSmall(false), flex:1, color:copiedId===f.id?accent:"#a8bfcf", textAlign:"center" }}><IdsIcon name={copiedId===f.id?"checkmark":"copy"} size={12} style={{ marginRight:3 }} />Copy</button>
                       </div>
                     )}
                   </div>
@@ -1092,30 +1121,22 @@ export default function PromptComposerV4() {
         <div style={{ flex:1, display:"flex", flexDirection:"column", minWidth:0 }}>
           <div style={{ flex:1, padding:18, display:"flex", flexDirection:"column", minHeight:0 }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
-              <div style={{ fontSize:9, color:"#444", ...mono, letterSpacing:"0.05em" }}>COMPOSE YOUR PROMPT</div>
+              <div style={{ fontSize:9, color:"#5d7a9a", fontWeight:600, letterSpacing:"0.05em" }}>COMPOSE YOUR PROMPT</div>
               <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                {tokenCount > 0 && <span style={{ fontSize:10, color:"#F4A024", ...mono, animation:"pulse 2s ease infinite" }}><IdsIcon name="triangle-exclamation" size={12} style={{ marginRight:3 }} />{tokenCount} unfilled</span>}
-                {filledCount > 0 && <span style={{ fontSize:10, color:accent, ...mono }}><IdsIcon name="checkmark" size={12} style={{ marginRight:3 }} />{filledCount} linked</span>}
+                {tokenCount > 0 && <span style={{ fontSize:10, color:"#F4A024", fontWeight:500, animation:"pulse 2s ease infinite" }}><IdsIcon name="triangle-exclamation" size={12} style={{ marginRight:3 }} />{tokenCount} unfilled</span>}
+                {filledCount > 0 && <span style={{ fontSize:10, color:accent, fontWeight:500 }}><IdsIcon name="checkmark" size={12} style={{ marginRight:3 }} />{filledCount} linked</span>}
               </div>
             </div>
 
             {/* ── Editor area with mode toggle ── */}
-            <div ref={editorRef} style={{ flex:1, borderRadius:10, border:"1px solid #1C1C1C", background:"#0E0E0E", overflow:"hidden", display:"flex", flexDirection:"column", minHeight:200, position:"relative" }}>
+            <div ref={editorRef} style={{ flex:1, borderRadius:10, border:"1px solid #1a4a7a", background:"#002040", overflow:"hidden", display:"flex", flexDirection:"column", minHeight:200, position:"relative" }}>
 
               {/* Mode toggle: Visual (chips) vs Raw (textarea) */}
               {prompt && segments.some(s => s.type!=="text") && (
-                <div style={{ padding:"6px 14px", borderBottom:"1px solid #161616", display:"flex", alignItems:"center", gap:6 }}>
-                  <button onClick={() => setEditorMode("visual")} style={{
-                    padding:"3px 10px", borderRadius:4, fontSize:10, cursor:"pointer", ...mono, border:"none",
-                    background: editorMode==="visual" ? "rgba(196,244,100,0.08)" : "transparent",
-                    color: editorMode==="visual" ? accent : "#444",
-                  }}><IdsIcon name="figma" size={12} style={{ marginRight:3 }} />Visual</button>
-                  <button onClick={() => setEditorMode("raw")} style={{
-                    padding:"3px 10px", borderRadius:4, fontSize:10, cursor:"pointer", ...mono, border:"none",
-                    background: editorMode==="raw" ? "rgba(196,244,100,0.08)" : "transparent",
-                    color: editorMode==="raw" ? accent : "#444",
-                  }}><IdsIcon name="edit" size={12} style={{ marginRight:3 }} />Raw</button>
-                  <span style={{ fontSize:9, color:"#2A2A2A", ...mono, marginLeft:6 }}>
+                <div style={{ padding:"6px 14px", borderBottom:"1px solid #1a4a7a", display:"flex", alignItems:"center", gap:6 }}>
+                  <button onClick={() => setEditorMode("visual")} style={S.btnSmall(editorMode==="visual")}><IdsIcon name="figma" size={12} style={{ marginRight:3 }} />Visual</button>
+                  <button onClick={() => setEditorMode("raw")} style={S.btnSmall(editorMode==="raw")}><IdsIcon name="edit" size={12} style={{ marginRight:3 }} />Raw</button>
+                  <span style={{ fontSize:9, color:"#2a5a8a", marginLeft:6 }}>
                     {editorMode==="visual" ? "Click chips to link/swap. Click text to edit." : "Edit the full prompt including tags."}
                   </span>
                 </div>
@@ -1123,20 +1144,20 @@ export default function PromptComposerV4() {
 
               {/* RAW MODE — always a textarea */}
               {(editorMode === "raw" || !segments.some(s => s.type!=="text")) && (
-                <textarea value={prompt} onChange={e => { setPrompt(e.target.value); setPopover(null); }}
+                <textarea ref={textareaRef} value={prompt} onChange={e => { setPrompt(e.target.value); setPopover(null); }}
                   placeholder={`Pick a preset, or start typing…\n\nType {{FIGMA_LINK}} or {{TARGET}} anywhere and they'll become clickable chips in Visual mode.\n\nEvery preset follows:\n  1. Screenshot Figma design\n  2. Read exact values via MCP\n  3. Apply changes\n  4. Self-check with implementation screenshot`}
-                  style={{ flex:1, background:"transparent", border:"none", padding:"16px 18px", color:"#E8E4DF", fontSize:13, fontFamily:"'Avenir Next',system-ui,sans-serif", lineHeight:1.8, resize:"none" }} />
+                  style={{ flex:1, background:"transparent", border:"none", padding:"16px 18px", color:"#ebf1f3", fontSize:13, fontFamily:uiFont, lineHeight:1.8, resize:"none" }} />
               )}
 
               {/* VISUAL MODE — editable text segments + interactive chips */}
               {editorMode === "visual" && segments.some(s => s.type!=="text") && (
                 <div style={{ flex:1, padding:"12px 14px", overflowY:"auto", position:"relative" }}>
-                  <div style={{ lineHeight:2.1, fontSize:13, color:"#E8E4DF", minHeight:"100%" }}>
+                  <div data-visual-editor style={{ lineHeight:2.1, fontSize:13, color:"#ebf1f3", minHeight:"100%" }}>
                     {segments.map((seg, idx) => {
                       // ── Text segment: editable inline ──
                       if (seg.type === "text") {
                         return (
-                          <span key={idx}
+                          <span key={idx} data-seg-idx={idx}
                             contentEditable
                             suppressContentEditableWarning
                             spellCheck={false}
@@ -1152,12 +1173,43 @@ export default function PromptComposerV4() {
                                 e.preventDefault();
                                 document.execCommand("insertText", false, "\n");
                               }
+                              // Backspace at start of text → delete previous chip
+                              if (e.key === "Backspace") {
+                                const sel = window.getSelection();
+                                if (sel && sel.isCollapsed && sel.getRangeAt(0).startOffset === 0 && idx > 0) {
+                                  const prev = segments[idx - 1];
+                                  if (prev && prev.type !== "text") {
+                                    e.preventDefault();
+                                    let tokenIdx = 0;
+                                    for (let si = 0; si < idx - 1; si++) { if (segments[si].type !== "text") tokenIdx++; }
+                                    setPrompt(replaceNthToken(prompt, tokenIdx, ""));
+                                  }
+                                }
+                              }
+                              // Delete at end of text → delete next chip
+                              if (e.key === "Delete") {
+                                const sel = window.getSelection();
+                                const len = e.currentTarget.innerText.length;
+                                if (sel && sel.isCollapsed && sel.getRangeAt(0).startOffset >= len && idx < segments.length - 1) {
+                                  const next = segments[idx + 1];
+                                  if (next && next.type !== "text") {
+                                    e.preventDefault();
+                                    let tokenIdx = 0;
+                                    for (let si = 0; si <= idx; si++) { if (segments[si].type !== "text") tokenIdx++; }
+                                    setPrompt(replaceNthToken(prompt, tokenIdx, ""));
+                                  }
+                                }
+                              }
                             }}
                             style={{
                               whiteSpace:"pre-wrap", wordBreak:"break-word",
                               outline:"none", borderRadius:3,
                               caretColor: accent,
                               transition:"background 0.15s",
+                              minWidth: seg.value === "" ? 8 : undefined,
+                              minHeight: seg.value === "" ? "1.4em" : undefined,
+                              display: seg.value === "" ? "inline-block" : undefined,
+                              padding: seg.value === "" ? "0 2px" : undefined,
                             }}
                             onFocus={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.02)"; }}
                             onBlurCapture={(e) => { e.currentTarget.style.background = "transparent"; }}
@@ -1169,19 +1221,25 @@ export default function PromptComposerV4() {
                       if (seg.type === "placeholder") {
                         const isSelecting = selectingFor && selectingFor.segIndex === idx;
                         return (
-                          <span key={idx} onClick={() => handleChipClick(idx, seg.kind)}
+                          <span key={idx} data-seg-idx={idx} onClick={() => handleChipClick(idx, seg.kind)}
                             style={{
                               display:"inline-flex", alignItems:"center", gap:4,
-                              background: isSelecting ? "rgba(196,244,100,0.15)" : seg.kind==="target" ? "rgba(255,255,255,0.06)" : "rgba(244,160,36,0.1)",
+                              background: isSelecting ? "rgba(0,208,224,0.15)" : seg.kind==="target" ? "rgba(255,255,255,0.06)" : "rgba(244,160,36,0.1)",
                               border:`1px solid ${isSelecting ? accent : seg.kind==="target" ? "rgba(255,255,255,0.15)" : "rgba(244,160,36,0.25)"}`,
                               borderRadius:6, padding:"2px 10px 2px 8px", margin:"0 3px",
-                              fontSize:11, ...mono, cursor:"pointer", transition:"all 0.2s",
-                              color: isSelecting ? accent : seg.kind==="target" ? "#999" : "#F4A024",
+                              fontSize:11, fontWeight:500, cursor:"pointer", transition:"all 0.2s",
+                              color: isSelecting ? accent : seg.kind==="target" ? "#b5cad8" : "#F4A024",
                               animation: isSelecting ? "selectGlow 1.5s ease infinite" : "pulse 2.5s ease infinite",
                               verticalAlign:"middle", userSelect:"none",
                             }}>
                             <IdsIcon name={seg.kind==="figma"?"figma":seg.kind==="target"?"circle-plus":"document"} size={14} />
                             {isSelecting ? "Selecting…" : seg.kind==="figma" ? "FIGMA_LINK" : seg.kind==="target" ? "TARGET" : "FILE_PATH"}
+                            <span onClick={(e) => { e.stopPropagation(); let ti = 0; for (let si = 0; si < idx; si++) { if (segments[si].type !== "text") ti++; } setPrompt(replaceNthToken(prompt, ti, "")); }}
+                              style={{ marginLeft:2, opacity:0.5, cursor:"pointer", lineHeight:1 }}
+                              onMouseEnter={e => e.currentTarget.style.opacity = "1"}
+                              onMouseLeave={e => e.currentTarget.style.opacity = "0.5"}>
+                              <IdsIcon name="close" size={10} />
+                            </span>
                           </span>
                         );
                       }
@@ -1189,21 +1247,27 @@ export default function PromptComposerV4() {
                       // ── Filled chip ──
                       if (seg.type === "filled") {
                         return (
-                          <span key={idx} data-filled-chip onClick={(e) => handleFilledClick(idx, seg.kind, seg.label, seg.value, e)}
+                          <span key={idx} data-seg-idx={idx} data-filled-chip onClick={(e) => handleFilledClick(idx, seg.kind, seg.label, seg.value, e)}
                             style={{
                               display:"inline-flex", alignItems:"center", gap:5,
-                              background:"rgba(196,244,100,0.08)",
-                              border:"1px solid rgba(196,244,100,0.2)",
+                              background:"rgba(0,208,224,0.08)",
+                              border:"1px solid rgba(0,208,224,0.2)",
                               borderRadius:6, padding:"2px 10px 2px 8px", margin:"0 3px",
-                              fontSize:11, ...mono, cursor:"pointer", transition:"all 0.2s",
+                              fontSize:11, fontWeight:500, cursor:"pointer", transition:"all 0.2s",
                               color:accent, verticalAlign:"middle", userSelect:"none",
                             }}
-                            onMouseEnter={e => { e.currentTarget.style.borderColor = accent; e.currentTarget.style.background = "rgba(196,244,100,0.12)"; }}
-                            onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(196,244,100,0.2)"; e.currentTarget.style.background = "rgba(196,244,100,0.08)"; }}>
+                            onMouseEnter={e => { e.currentTarget.style.borderColor = accent; e.currentTarget.style.background = "rgba(0,208,224,0.12)"; }}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(0,208,224,0.2)"; e.currentTarget.style.background = "rgba(0,208,224,0.08)"; }}>
                             <IdsIcon name={seg.kind==="figma"?"figma":seg.kind==="target"?"circle-plus":"document"} size={14} />
                             <span style={{ fontWeight:500 }}>{seg.label}</span>
-                            <span style={{ fontSize:9, color:"#555", maxWidth:120, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                            <span style={{ fontSize:9, color:"#7a93aa", maxWidth:120, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                               {seg.value.length > 30 ? "…"+seg.value.slice(-25) : seg.value}
+                            </span>
+                            <span onClick={(e) => { e.stopPropagation(); let ti = 0; for (let si = 0; si < idx; si++) { if (segments[si].type !== "text") ti++; } setPrompt(replaceNthToken(prompt, ti, "")); }}
+                              style={{ marginLeft:2, opacity:0.5, cursor:"pointer", lineHeight:1 }}
+                              onMouseEnter={e => e.currentTarget.style.opacity = "1"}
+                              onMouseLeave={e => e.currentTarget.style.opacity = "0.5"}>
+                              <IdsIcon name="close" size={10} />
                             </span>
                           </span>
                         );
@@ -1216,29 +1280,29 @@ export default function PromptComposerV4() {
                   {popover && (
                     <div data-popover style={{
                       position:"absolute", left:Math.min(popover.x, 280), top:popover.y, zIndex:60,
-                      background:"#1A1A1A", border:`1px solid ${accent}`, borderRadius:10,
-                      padding:14, minWidth:220, boxShadow:`0 12px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(196,244,100,0.1)`,
+                      background:"#103a68", border:`1px solid ${accent}`, borderRadius:10,
+                      padding:14, minWidth:220, boxShadow:`0 12px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,208,224,0.1)`,
                       animation:"fadeIn 0.15s ease",
                     }}>
                       <div style={{ fontSize:11, fontWeight:600, marginBottom:4, color:accent }}>
                         <IdsIcon name={popover.kind==="figma"?"figma":popover.kind==="target"?"circle-plus":"document"} size={14} style={{ marginRight:4 }} />{popover.label}
                       </div>
-                      <div style={{ fontSize:9, color:"#555", ...mono, marginBottom:12, wordBreak:"break-all", lineHeight:1.5 }}>{popover.value}</div>
+                      <div style={{ fontSize:9, color:"#7a93aa", ...mono, marginBottom:12, wordBreak:"break-all", lineHeight:1.5 }}>{popover.value}</div>
                       <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-                        <button onClick={handleSwap} style={{ width:"100%", background:"#222", border:"1px solid #2A2A2A", borderRadius:6, padding:"7px 10px", color:"#ddd", fontSize:11, cursor:"pointer", ...mono, textAlign:"left", display:"flex", alignItems:"center", gap:8 }}
-                          onMouseEnter={e => e.currentTarget.style.borderColor=accent}
-                          onMouseLeave={e => e.currentTarget.style.borderColor="#2A2A2A"}>
+                        <button onClick={handleSwap} style={{ ...S.btnSecondary, width:"100%", padding:"7px 10px", fontSize:11, textAlign:"left", gap:8 }}
+                          onMouseEnter={e => { e.currentTarget.style.borderColor=accent; e.currentTarget.style.background="rgba(0,208,224,0.04)"; }}
+                          onMouseLeave={e => { e.currentTarget.style.borderColor="#5d7a9a"; e.currentTarget.style.background="transparent"; }}>
                           <IdsIcon name="swap" size={14} color={accent} /> Swap — choose a different {popover.kind==="figma"?"link":"path"}
                         </button>
-                        <button onClick={handleUnlink} style={{ width:"100%", background:"#222", border:"1px solid #2A2A2A", borderRadius:6, padding:"7px 10px", color:"#ddd", fontSize:11, cursor:"pointer", ...mono, textAlign:"left", display:"flex", alignItems:"center", gap:8 }}
-                          onMouseEnter={e => e.currentTarget.style.borderColor="#F4A024"}
-                          onMouseLeave={e => e.currentTarget.style.borderColor="#2A2A2A"}>
+                        <button onClick={handleUnlink} style={{ ...S.btnSecondary, width:"100%", padding:"7px 10px", fontSize:11, textAlign:"left", gap:8 }}
+                          onMouseEnter={e => { e.currentTarget.style.borderColor="#F4A024"; e.currentTarget.style.background="rgba(244,160,36,0.04)"; }}
+                          onMouseLeave={e => { e.currentTarget.style.borderColor="#5d7a9a"; e.currentTarget.style.background="transparent"; }}>
                           <IdsIcon name="unlink" size={14} color="#F4A024" /> Unlink — revert to placeholder
                         </button>
                         {!((popover.kind==="figma"?figmaLinks:filePaths).some(x => (popover.kind==="figma"?x.url:x.path)===popover.value)) && (
-                          <button onClick={handlePopoverSave} style={{ width:"100%", background:"#222", border:"1px solid #2A2A2A", borderRadius:6, padding:"7px 10px", color:"#ddd", fontSize:11, cursor:"pointer", ...mono, textAlign:"left", display:"flex", alignItems:"center", gap:8 }}
-                            onMouseEnter={e => e.currentTarget.style.borderColor="#64B5F6"}
-                            onMouseLeave={e => e.currentTarget.style.borderColor="#2A2A2A"}>
+                          <button onClick={handlePopoverSave} style={{ ...S.btnSecondary, width:"100%", padding:"7px 10px", fontSize:11, textAlign:"left", gap:8 }}
+                            onMouseEnter={e => { e.currentTarget.style.borderColor="#64B5F6"; e.currentTarget.style.background="rgba(100,181,246,0.04)"; }}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor="#5d7a9a"; e.currentTarget.style.background="transparent"; }}>
                             <IdsIcon name="plus" size={14} color="#64B5F6" /> Save to library
                           </button>
                         )}
@@ -1249,8 +1313,8 @@ export default function PromptComposerV4() {
               )}
 
               {/* Quick insert bar */}
-              <div style={{ padding:"7px 12px", borderTop:"1px solid #161616", display:"flex", alignItems:"center", gap:4, flexWrap:"wrap" }}>
-                <span style={{ fontSize:8, color:"#2A2A2A", ...mono }}>Insert:</span>
+              <div style={{ padding:"7px 12px", borderTop:"1px solid #1a4a7a", display:"flex", alignItems:"center", gap:4, flexWrap:"wrap" }}>
+                <span style={{ fontSize:8, color:"#2a5a8a", fontWeight:500 }}>Insert:</span>
                 {[
                   { l:"{{FIGMA_LINK}}", t:"{{FIGMA_LINK}}" },
                   { l:"{{TARGET}}", t:"{{TARGET}}" },
@@ -1260,34 +1324,85 @@ export default function PromptComposerV4() {
                   { l:"+ Scope: element", t:"\n\nSCOPE: Only change the following specific element — do not touch anything else:\n[Describe the exact element here]" },
                   { l:"+ Scope: state", t:"\n\nSCOPE: Only fix the following state — all other states should remain unchanged:\n[e.g., hover state, focus state, disabled state]" },
                 ].map(s => (
-                  <button key={s.l} onClick={() => { setPrompt(p => p + s.t); }} style={{ ...S.chip, color:"#555" }}
-                    onMouseEnter={e => e.currentTarget.style.color=accent}
-                    onMouseLeave={e => e.currentTarget.style.color="#555"}>{s.l}</button>
+                  <button key={s.l} onMouseDown={e => e.preventDefault()} onClick={() => {
+                    const ta = textareaRef.current;
+                    const isRawMode = editorMode === "raw" || !segments.some(seg => seg.type!=="text");
+                    if (ta && isRawMode) {
+                      const start = ta.selectionStart ?? prompt.length;
+                      const end = ta.selectionEnd ?? prompt.length;
+                      const before = prompt.slice(0, start);
+                      const after = prompt.slice(end);
+                      const newPrompt = before + s.t + after;
+                      setPrompt(newPrompt);
+                      requestAnimationFrame(() => {
+                        const cursorPos = start + s.t.length;
+                        ta.selectionStart = cursorPos;
+                        ta.selectionEnd = cursorPos;
+                        ta.focus();
+                      });
+                    } else {
+                      // Visual mode: rebuild prompt from current DOM state, then insert at selection
+                      const sel = window.getSelection();
+                      const visualDiv = editorRef.current?.querySelector("[data-visual-editor]");
+                      if (sel && sel.rangeCount > 0 && visualDiv) {
+                        // Find which text span the cursor is in and get its current DOM text
+                        const range = sel.getRangeAt(0);
+                        const spans = visualDiv.querySelectorAll("[data-seg-idx]");
+                        let insertPos = prompt.length; // fallback: end
+                        // First, rebuild the prompt from DOM to capture any unsaved edits
+                        let rebuilt = "";
+                        let found = false;
+                        for (const span of spans) {
+                          const si = parseInt(span.getAttribute("data-seg-idx"), 10);
+                          const seg = segments[si];
+                          if (!seg) continue;
+                          if (seg.type === "text") {
+                            const domText = span.innerText;
+                            if (span.contains(range.startContainer) && !found) {
+                              // If range container is the span itself (empty span), offset is child index not char offset
+                              const charOffset = range.startContainer === span ? 0 : range.startOffset;
+                              insertPos = rebuilt.length + Math.min(charOffset, domText.length);
+                              found = true;
+                            }
+                            rebuilt += domText;
+                          } else if (seg.type === "placeholder") {
+                            const token = seg.kind === "figma" ? "{{FIGMA_LINK}}" : seg.kind === "file" ? "{{FILE_PATH}}" : "{{TARGET}}";
+                            rebuilt += token;
+                          } else if (seg.type === "filled") {
+                            const prefix = seg.kind === "figma" ? "FIGMA" : seg.kind === "file" ? "FILE" : "TARGET";
+                            rebuilt += `{{${prefix}_FILLED:${seg.label}|${seg.value}}}`;
+                          }
+                        }
+                        const newPrompt = rebuilt.slice(0, insertPos) + s.t + rebuilt.slice(insertPos);
+                        setPrompt(newPrompt);
+                      } else {
+                        setPrompt(p => p + s.t);
+                      }
+                    }
+                  }} style={{ ...S.btnSmall(false), color:"#7a93aa" }}
+                    onMouseEnter={e => { e.currentTarget.style.color=accent; e.currentTarget.style.borderColor=accent; }}
+                    onMouseLeave={e => { e.currentTarget.style.color="#7a93aa"; e.currentTarget.style.borderColor="transparent"; }}>{s.l}</button>
                 ))}
               </div>
             </div>
 
             {/* Actions */}
             <div style={{ display:"flex", gap:8, marginTop:12, alignItems:"center" }}>
-              <button onClick={copyPrompt} disabled={!prompt.trim()} style={{
-                background:prompt.trim()?accent:"#1A1A1A", color:prompt.trim()?"#0A0A0A":"#444",
-                border:"none", borderRadius:8, padding:"10px 22px", fontSize:12, fontWeight:600,
-                cursor:prompt.trim()?"pointer":"default", boxShadow:prompt.trim()?"0 4px 20px rgba(196,244,100,0.1)":"none",
-              }}><>{copiedId==="main"?<><IdsIcon name="checkmark" size={14} style={{ marginRight:4 }} />Copied!</>:<><IdsIcon name="copy" size={14} style={{ marginRight:4 }} />Copy Prompt</>}</></button>
-              <button onClick={() => { setPrompt(""); setPopover(null); setSelectingFor(null); setEditorMode("raw"); }} style={{ background:"transparent", border:"1px solid #222", borderRadius:8, padding:"10px 14px", color:"#555", fontSize:12, cursor:"pointer" }}>Clear</button>
+              <button onClick={copyPrompt} disabled={!prompt.trim()} style={S.btnPrimaryLg(prompt.trim())}><>{copiedId==="main"?<><IdsIcon name="checkmark" size={14} style={{ marginRight:4 }} />Copied!</>:<><IdsIcon name="copy" size={14} style={{ marginRight:4 }} />Copy Prompt</>}</></button>
+              <button onClick={() => { setPrompt(""); setPopover(null); setSelectingFor(null); setEditorMode("raw"); }} style={S.btnSecondary}>Clear</button>
               <div style={{ flex:1 }} />
-              <div style={{ fontSize:8, color:"#1E1E1E", ...mono }}>Apply → Review → Correct</div>
+              <div style={{ fontSize:8, color:"#1a4a7a" }}>Apply → Review → Correct</div>
             </div>
 
             {/* History */}
             {promptHistory.length > 0 && (
               <div style={{ marginTop:14 }}>
-                <div style={{ fontSize:8, color:"#222", ...mono, marginBottom:5 }}>HISTORY</div>
+                <div style={{ fontSize:8, color:"#1e5080", fontWeight:600, letterSpacing:"0.04em", marginBottom:5 }}>HISTORY</div>
                 {promptHistory.slice(0,3).map((h,i) => (
-                  <button key={i} onClick={() => { setPrompt(h.text); showToast("Restored"); }} style={{ display:"block", width:"100%", background:"#0C0C0C", border:"1px solid #141414", borderRadius:6, padding:"5px 9px", marginBottom:2, cursor:"pointer", textAlign:"left" }}
-                    onMouseEnter={e => e.currentTarget.style.borderColor="#2A2A2A"}
-                    onMouseLeave={e => e.currentTarget.style.borderColor="#141414"}>
-                    <span style={{ fontSize:9, color:"#444", ...mono }}>{promptToPlainText(h.text).substring(0,80)}…</span>
+                  <button key={i} onClick={() => { setPrompt(h.text); showToast("Restored"); }} style={{ ...S.btnSecondary, display:"block", width:"100%", background:"transparent", padding:"5px 9px", marginBottom:2, textAlign:"left", borderColor:"#1a4a7a" }}
+                    onMouseEnter={e => e.currentTarget.style.borderColor="#5d7a9a"}
+                    onMouseLeave={e => e.currentTarget.style.borderColor="#1a4a7a"}>
+                    <span style={{ fontSize:9, color:"#5d7a9a", ...mono }}>{promptToPlainText(h.text).substring(0,80)}…</span>
                   </button>
                 ))}
               </div>
@@ -1368,7 +1483,7 @@ export default function PromptComposerV4() {
           const parts = text.split(new RegExp(`(${searchLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'));
           return parts.map((part, i) =>
             part.toLowerCase() === searchLower
-              ? <mark key={i} style={{ background:"rgba(196,244,100,0.25)", color:accent, borderRadius:2, padding:"0 2px" }}>{part}</mark>
+              ? <mark key={i} style={{ background:"rgba(0,208,224,0.25)", color:accent, borderRadius:2, padding:"0 2px" }}>{part}</mark>
               : part
           );
         };
@@ -1381,60 +1496,53 @@ export default function PromptComposerV4() {
             animation:"fadeIn 0.2s ease",
           }}>
             {/* Help header */}
-            <div style={{ padding:"20px 28px", borderBottom:"1px solid #181818", display:"flex", alignItems:"center", gap:16, flexShrink:0 }}>
+            <div style={{ padding:"20px 28px", borderBottom:"1px solid #1a4a7a", display:"flex", alignItems:"center", gap:16, flexShrink:0 }}>
               <div style={{ display:"flex", alignItems:"center", gap:10, flex:1 }}>
-                <div style={{ width:36, height:36, borderRadius:9, background:"rgba(196,244,100,0.1)", border:"1px solid rgba(196,244,100,0.2)", display:"flex", alignItems:"center", justifyContent:"center", color:accent }}><IdsIcon name="question" size={20} /></div>
+                <div style={{ width:36, height:36, borderRadius:9, background:"rgba(0,208,224,0.1)", border:"1px solid rgba(0,208,224,0.2)", display:"flex", alignItems:"center", justifyContent:"center", color:accent }}><IdsIcon name="question" size={20} /></div>
                 <div>
                   <div style={{ fontSize:16, fontWeight:600 }}>How to Use Prompt Composer</div>
-                  <div style={{ fontSize:11, color:"#555", ...mono }}>Search or browse — no coding knowledge needed</div>
+                  <div style={{ fontSize:11, color:"#7a93aa" }}>Search or browse — no coding knowledge needed</div>
                 </div>
               </div>
               <button onClick={() => { setShowHelp(false); setHelpSearch(""); setHelpCategory("all"); }}
-                style={{ width:36, height:36, borderRadius:9, background:"#1A1A1A", border:"1px solid #2A2A2A", display:"flex", alignItems:"center", justifyContent:"center", color:"#888", fontSize:18, cursor:"pointer" }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = "#f44"; e.currentTarget.style.color = "#f44"; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = "#2A2A2A"; e.currentTarget.style.color = "#888"; }}
+                style={{ ...S.btnIcon, width:36, height:36, borderRadius:9 }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = "#b61a37"; e.currentTarget.style.color = "#b61a37"; e.currentTarget.style.background = "rgba(182,26,55,0.06)"; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = "#5d7a9a"; e.currentTarget.style.color = "#a8bfcf"; e.currentTarget.style.background = "transparent"; }}
               ><IdsIcon name="close" size={16} /></button>
             </div>
 
             {/* Search bar */}
-            <div style={{ padding:"16px 28px 12px", borderBottom:"1px solid #141414", flexShrink:0 }}>
+            <div style={{ padding:"16px 28px 12px", borderBottom:"1px solid #1a4a7a", flexShrink:0 }}>
               <div style={{ position:"relative", maxWidth:600 }}>
-                <span style={{ position:"absolute", left:14, top:"50%", transform:"translateY(-50%)", color:"#444", pointerEvents:"none" }}><IdsIcon name="search" size={16} /></span>
+                <span style={{ position:"absolute", left:14, top:"50%", transform:"translateY(-50%)", color:"#5d7a9a", pointerEvents:"none" }}><IdsIcon name="search" size={16} /></span>
                 <input
                   value={helpSearch}
                   onChange={e => setHelpSearch(e.target.value)}
                   placeholder="Search — try 'chip', 'figma link', 'not matching', 'icons', 'file path'..."
                   autoFocus
                   style={{
-                    width:"100%", background:"#111", border:"1px solid #222", borderRadius:10,
-                    padding:"13px 16px 13px 40px", color:"#E8E4DF", fontSize:14,
-                    fontFamily:"'Avenir Next',system-ui,sans-serif",
+                    width:"100%", background:"#0a2e52", border:"1px solid #1e5080", borderRadius:10,
+                    padding:"13px 16px 13px 40px", color:"#ebf1f3", fontSize:14,
+                    fontFamily:uiFont,
                     transition:"border-color 0.2s",
                   }}
                   onFocus={e => e.currentTarget.style.borderColor = accent}
-                  onBlur={e => e.currentTarget.style.borderColor = "#222"}
+                  onBlur={e => e.currentTarget.style.borderColor = "#1e5080"}
                 />
                 {helpSearch && (
-                  <button onClick={() => setHelpSearch("")} style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:"#555", fontSize:14, cursor:"pointer" }}><IdsIcon name="close" size={12} /></button>
+                  <button onClick={() => setHelpSearch("")} style={{ ...S.btnGhost, position:"absolute", right:12, top:"50%", transform:"translateY(-50%)" }}><IdsIcon name="close" size={12} /></button>
                 )}
               </div>
               {/* Category pills */}
               {!searchLower && (
                 <div style={{ display:"flex", gap:5, marginTop:12, flexWrap:"wrap" }}>
                   {[{ id:"all", l:"All Topics" }, ...HELP_SECTIONS.map(s => ({ id:s.cat, l:s.title }))].map(c => (
-                    <button key={c.id} onClick={() => setHelpCategory(c.id)} style={{
-                      padding:"5px 14px", borderRadius:6, fontSize:11, cursor:"pointer", ...mono,
-                      background: helpCategory===c.id ? accent : "#1A1A1A",
-                      color: helpCategory===c.id ? "#0A0A0A" : "#666",
-                      border:`1px solid ${helpCategory===c.id ? accent : "#222"}`,
-                      fontWeight: helpCategory===c.id ? 600 : 400,
-                      transition:"all 0.15s",
-                    }}>{c.l}</button>
+                    <button key={c.id} onClick={() => setHelpCategory(c.id)} style={{ ...S.btnPill(helpCategory===c.id), padding:"5px 14px", borderRadius:6, fontSize:11 }}>{c.l}</button>
                   ))}
                 </div>
               )}
               {searchLower && (
-                <div style={{ marginTop:10, fontSize:12, color:"#555", ...mono }}>
+                <div style={{ marginTop:10, fontSize:12, color:"#7a93aa" }}>
                   {filteredItems.length} result{filteredItems.length !== 1 ? "s" : ""} for "{helpSearch}"
                 </div>
               )}
@@ -1444,9 +1552,9 @@ export default function PromptComposerV4() {
             <div style={{ flex:1, overflowY:"auto", padding:"16px 28px 40px" }}>
               {filteredItems.length === 0 && (
                 <div style={{ textAlign:"center", padding:"60px 20px" }}>
-                  <div style={{ marginBottom:12 }}><IdsIcon name="search" size={32} color="#444" /></div>
+                  <div style={{ marginBottom:12 }}><IdsIcon name="search" size={32} color="#5d7a9a" /></div>
                   <div style={{ fontSize:15, fontWeight:500, marginBottom:8 }}>No results for "{helpSearch}"</div>
-                  <div style={{ fontSize:13, color:"#555" }}>Try different words — for example, "how to fill a chip" or "colors not matching"</div>
+                  <div style={{ fontSize:13, color:"#7a93aa" }}>Try different words — for example, "how to fill a chip" or "colors not matching"</div>
                 </div>
               )}
 
@@ -1455,12 +1563,12 @@ export default function PromptComposerV4() {
                 HELP_SECTIONS.filter(s => helpCategory === "all" || s.cat === helpCategory).map(section => (
                   <div key={section.cat} style={{ marginBottom:32 }}>
                     <div style={{
-                      fontSize:11, ...mono, color:accent, letterSpacing:"0.06em", textTransform:"uppercase",
-                      marginBottom:14, paddingBottom:8, borderBottom:"1px solid #1A1A1A",
+                      fontSize:11, color:accent, letterSpacing:"0.06em", textTransform:"uppercase", fontWeight:600,
+                      marginBottom:14, paddingBottom:8, borderBottom:"1px solid #1a4a7a",
                       display:"flex", alignItems:"center", gap:10,
                     }}>
                       {section.title}
-                      <span style={{ fontSize:9, color:"#333", fontWeight:400, textTransform:"none", letterSpacing:0 }}>{section.items.length} topics</span>
+                      <span style={{ fontSize:9, color:"#3a6a9a", fontWeight:400, textTransform:"none", letterSpacing:0 }}>{section.items.length} topics</span>
                     </div>
                     <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
                       {section.items.map((item, i) => (
@@ -1493,35 +1601,35 @@ function HelpCard({ item, highlight, mono, accent, showCat }) {
     <div
       onClick={() => setOpen(!open)}
       style={{
-        background: open ? "#111" : "#0D0D0D",
-        border: `1px solid ${open ? "#2A2A2A" : "#181818"}`,
+        background: open ? "#0a2e52" : "#001a38",
+        border: `1px solid ${open ? "#2a5a8a" : "#1a4a7a"}`,
         borderRadius: 11, padding: "16px 20px", cursor: "pointer",
         transition: "all 0.2s",
       }}
-      onMouseEnter={e => { if (!open) e.currentTarget.style.borderColor = "#222"; }}
-      onMouseLeave={e => { if (!open) e.currentTarget.style.borderColor = "#181818"; }}
+      onMouseEnter={e => { if (!open) e.currentTarget.style.borderColor = "#1e5080"; }}
+      onMouseLeave={e => { if (!open) e.currentTarget.style.borderColor = "#1a4a7a"; }}
     >
       <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
         <span style={{
           width: 22, height: 22, borderRadius: 6, flexShrink: 0, marginTop: 1,
-          background: open ? "rgba(196,244,100,0.1)" : "#161616",
-          border: `1px solid ${open ? "rgba(196,244,100,0.2)" : "#1E1E1E"}`,
+          background: open ? "rgba(0,208,224,0.1)" : "#1a4a7a",
+          border: `1px solid ${open ? "rgba(0,208,224,0.2)" : "#1a4a7a"}`,
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 11, color: open ? accent : "#555",
+          fontSize: 11, color: open ? accent : "#7a93aa",
           transition: "all 0.2s",
         }}>{open ? "−" : "+"}</span>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.4, color: open ? "#E8E4DF" : "#ccc" }}>
+          <div style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.4, color: open ? "#ebf1f3" : "#c8dae5" }}>
             {highlight(item.q)}
           </div>
           {showCat && (
-            <span style={{ fontSize: 9, ...mono, color: "#444", background: "#151515", padding: "1px 6px", borderRadius: 3, marginTop: 4, display: "inline-block" }}>
+            <span style={{ fontSize: 9, color: "#5d7a9a", background: "#1a4a7a", padding: "1px 6px", borderRadius: 3, marginTop: 4, display: "inline-block" }}>
               {item.catTitle}
             </span>
           )}
           {open && (
             <div style={{
-              marginTop: 14, fontSize: 13, color: "#999", lineHeight: 1.85,
+              marginTop: 14, fontSize: 13, color: "#b5cad8", lineHeight: 1.85,
               whiteSpace: "pre-wrap", animation: "slideUp 0.2s ease",
             }}>
               {highlight(item.a)}

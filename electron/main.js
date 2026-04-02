@@ -17,7 +17,7 @@ function createWindow() {
     ...(x !== undefined && y !== undefined ? { x, y } : {}),
     minWidth: 800,
     minHeight: 500,
-    backgroundColor: "#0A0A0A",
+    backgroundColor: "#00254a",
     title: "Prompt Composer",
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),

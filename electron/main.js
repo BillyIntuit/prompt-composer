@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, nativeImage } = require("electron");
+const { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, nativeImage, dialog } = require("electron");
 const path = require("path");
 const store = require("./store");
 
@@ -108,6 +108,15 @@ ipcMain.handle("store:get", (_event, key) => {
 
 ipcMain.handle("store:set", (_event, key, value) => {
   store.set(key, value);
+});
+
+ipcMain.handle("dialog:openFile", async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ["openFile"],
+    title: "Select a file",
+  });
+  if (result.canceled || result.filePaths.length === 0) return null;
+  return result.filePaths[0];
 });
 
 // App lifecycle

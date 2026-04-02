@@ -779,6 +779,9 @@ export default function PromptComposerV4() {
               <div style={{ display:"flex", gap:6, alignItems:"center" }}>
                 <input value={inlineNew} onChange={e => setInlineNew(e.target.value)} placeholder={selectingFor.kind==="figma"?"Or paste a new Figma URL…":selectingFor.kind==="target"?"Or type a file path or description…":"Or type a new file path…"} style={{ ...S.input, fontSize:11, ...mono, flex:1 }}
                   onKeyDown={e => e.key==="Enter" && handleInlineSubmit(selectingFor.kind)} />
+                {selectingFor.kind!=="figma" && isElectron && (
+                  <button onClick={async () => { const fp = await window.electronAPI.dialog.openFile(); if (fp) { setInlineNew(fp); } }} style={{ ...S.sBtn(false), padding:"6px 10px", fontSize:10, whiteSpace:"nowrap" }}><IdsIcon name="document" size={12} style={{ marginRight:3 }} />Browse</button>
+                )}
                 <button onClick={() => handleInlineSubmit(selectingFor.kind)} disabled={!inlineNew.trim()} style={{ ...S.sBtn(!!inlineNew.trim()), padding:"6px 12px", fontSize:10 }}>Use</button>
               </div>
               {inlineNew.trim() && (
@@ -1047,10 +1050,15 @@ export default function PromptComposerV4() {
                       ))}
                     </div>
                     <input value={newFile.label} onChange={e => setNewFile(f => ({...f,label:e.target.value}))} placeholder="Label (optional)" style={{ ...S.input, marginBottom:6 }} />
-                    <input value={newFile.path} onChange={e => setNewFile(f => ({...f,path:e.target.value}))}
-                      placeholder={newFile.isDescription ? "e.g. the primary button component" : "e.g. src/components/Button.tsx"}
-                      style={{ ...S.input, fontSize:10, ...(newFile.isDescription ? {} : mono), marginBottom:7 }}
-                      onKeyDown={e => e.key==="Enter"&&addFileItem()} />
+                    <div style={{ display:"flex", gap:4, marginBottom:7 }}>
+                      <input value={newFile.path} onChange={e => setNewFile(f => ({...f,path:e.target.value}))}
+                        placeholder={newFile.isDescription ? "e.g. the primary button component" : "e.g. src/components/Button.tsx"}
+                        style={{ ...S.input, fontSize:10, ...(newFile.isDescription ? {} : mono), flex:1, marginBottom:0 }}
+                        onKeyDown={e => e.key==="Enter"&&addFileItem()} />
+                      {!newFile.isDescription && isElectron && (
+                        <button onClick={async () => { const fp = await window.electronAPI.dialog.openFile(); if (fp) { setNewFile(f => ({...f, path:fp, label: f.label || fp.split("/").pop()})); } }} style={{ ...S.sBtn(false), padding:"6px 10px", fontSize:10, whiteSpace:"nowrap" }}><IdsIcon name="document" size={12} style={{ marginRight:3 }} />Browse</button>
+                      )}
+                    </div>
                     <button onClick={addFileItem} style={{ width:"100%", background:accent, color:"#0A0A0A", border:"none", borderRadius:6, padding:7, fontSize:11, fontWeight:600, cursor:"pointer" }}>Save</button>
                   </div>
                 )}

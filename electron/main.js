@@ -112,7 +112,7 @@ ipcMain.handle("store:set", (_event, key, value) => {
 
 ipcMain.handle("dialog:openFile", async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
-    properties: ["openFile"],
+    properties: ["openFile", "openDirectory"],
     title: "Select a file",
   });
   if (result.canceled || result.filePaths.length === 0) return null;

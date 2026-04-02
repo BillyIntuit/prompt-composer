@@ -282,6 +282,7 @@ export default function PromptComposerV4() {
   const [showSkills, setShowSkills] = useState(false);
   // Help
   const [showHelp, setShowHelp] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState(null);
   const [helpSearch, setHelpSearch] = useState("");
   const [helpCategory, setHelpCategory] = useState("all");
 
@@ -356,6 +357,13 @@ export default function PromptComposerV4() {
     persistToStore("preferences", { editorMode, activePanel });
   }, [editorMode, activePanel]);
   useEffect(() => { persistToStore("recentLinkIds", recentLinkIds); }, [recentLinkIds]);
+
+  // Listen for update notifications from main process
+  useEffect(() => {
+    if (isElectron && window.electronAPI.onUpdateAvailable) {
+      window.electronAPI.onUpdateAvailable((data) => setUpdateInfo(data));
+    }
+  }, []);
 
   // ═══ KEYBOARD SHORTCUTS ═══
   useEffect(() => {
@@ -628,6 +636,20 @@ export default function PromptComposerV4() {
 
       {/* Toast */}
       {toast && <div style={{ position:"fixed",top:16,right:16,zIndex:300,background:accent,color:"#00254a",padding:"9px 18px",borderRadius:8,fontSize:12,fontWeight:500,animation:"fadeIn 0.2s ease",boxShadow:"0 6px 24px rgba(0,208,224,0.2)" }}>{toast}</div>}
+
+      {/* Update banner */}
+      {updateInfo && (
+        <div style={{ padding:"8px 20px", background:"#0a2e52", borderBottom:"1px solid #1a4a7a", display:"flex", alignItems:"center", justifyContent:"space-between", animation:"fadeIn 0.3s ease" }}>
+          <span style={{ fontSize:12, color:"#ebf1f3" }}>
+            <IdsIcon name="triangle-exclamation" size={14} color={accent} style={{ marginRight:6 }} />
+            Update available: <strong>v{updateInfo.version}</strong>
+          </span>
+          <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+            <button onClick={() => { if (isElectron) window.electronAPI.openUrl(updateInfo.url); }} style={{ ...S.sBtn(true), padding:"4px 12px", fontSize:11 }}>Download</button>
+            <button onClick={() => setUpdateInfo(null)} style={S.btnGhost}><IdsIcon name="close" size={12} /></button>
+          </div>
+        </div>
+      )}
 
       {/* ─── HEADER ─── */}
       <div style={{ padding:"12px 20px", borderBottom:"1px solid #1a4a7a", display:"flex", alignItems:"center", justifyContent:"space-between", background:"#001a38" }}>

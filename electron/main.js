@@ -1,5 +1,6 @@
-const { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, nativeImage, dialog } = require("electron");
+const { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, nativeImage, dialog, shell } = require("electron");
 const path = require("path");
+const https = require("https");
 const store = require("./store");
 
 let mainWindow = null;
@@ -119,11 +120,57 @@ ipcMain.handle("dialog:openFile", async () => {
   return result.filePaths[0];
 });
 
+// Update checker — compares package.json version against latest GitHub Release
+const REPO = "BillyIntuit/prompt-composer";
+
+function checkForUpdates() {
+  const currentVersion = require("../package.json").version;
+  const options = {
+    hostname: "api.github.com",
+    path: `/repos/${REPO}/releases/latest`,
+    headers: { "User-Agent": "PromptComposer" },
+  };
+  https.get(options, (res) => {
+    let data = "";
+    res.on("data", (chunk) => (data += chunk));
+    res.on("end", () => {
+      try {
+        const release = JSON.parse(data);
+        const latest = (release.tag_name || "").replace(/^v/, "");
+        if (latest && latest !== currentVersion && isNewer(latest, currentVersion)) {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send("update-available", {
+              version: latest,
+              url: release.html_url,
+            });
+          }
+        }
+      } catch {}
+    });
+  }).on("error", () => {});
+}
+
+function isNewer(latest, current) {
+  const a = latest.split(".").map(Number);
+  const b = current.split(".").map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((a[i] || 0) > (b[i] || 0)) return true;
+    if ((a[i] || 0) < (b[i] || 0)) return false;
+  }
+  return false;
+}
+
+ipcMain.handle("open-url", (_event, url) => {
+  shell.openExternal(url);
+});
+
 // App lifecycle
 app.whenReady().then(() => {
   createWindow();
   createTray();
   registerGlobalShortcuts();
+  // Check for updates 5 seconds after launch
+  setTimeout(checkForUpdates, 5000);
 });
 
 app.on("will-quit", () => {

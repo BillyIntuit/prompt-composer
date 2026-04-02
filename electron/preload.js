@@ -8,4 +8,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   dialog: {
     openFile: () => ipcRenderer.invoke("dialog:openFile"),
   },
+  openUrl: (url) => ipcRenderer.invoke("open-url", url),
+  onUpdateAvailable: (callback) => {
+    ipcRenderer.on("update-available", (_event, data) => callback(data));
+  },
 });

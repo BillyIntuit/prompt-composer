@@ -539,7 +539,7 @@ export default function PromptComposerV4() {
                 onMouseLeave={e => e.currentTarget.style.borderColor="#1C1C1C"}>
                 <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:5 }}>
                   <span style={{ width:24,height:24,borderRadius:6,background:"rgba(196,244,100,0.07)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:accent }}>{s.icon}</span>
-                  <span style={{ fontSize:11, fontWeight:500 }}>{s.label}</span>
+                  <span style={{ fontSize:11, fontWeight:500, color:"#E8E4DF" }}>{s.label}</span>
                 </div>
                 <div style={{ fontSize:9, color:"#444", ...mono, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{s.template.split("\n")[0]}</div>
               </button>

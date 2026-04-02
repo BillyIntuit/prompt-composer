@@ -183,7 +183,7 @@ function parsePrompt(text) {
   const parts = text.split(ANY_TOKEN_RE).filter(Boolean);
   return parts.map((part, i) => {
     if (part === "{{FIGMA_LINK}}") return { type:"placeholder", kind:"figma", key:i };
-    if (part === "{{TARGET}}") return { type:"placeholder", kind:"file", key:i };
+    if (part === "{{FILE_PATH}}") return { type:"placeholder", kind:"file", key:i };
     if (part === "{{TARGET}}") return { type:"placeholder", kind:"target", key:i };
     const fm = part.match(/^\{\{FIGMA_FILLED:([^|]*)\|([^}]*)\}\}$/);
     if (fm) return { type:"filled", kind:"figma", label:fm[1], value:fm[2], key:i };
@@ -217,7 +217,7 @@ function rebuildPromptWithTextChange(segments, segIdx, newText) {
     if (seg.type === "text") return seg.value;
     if (seg.type === "placeholder") {
       if (seg.kind === "figma") return "{{FIGMA_LINK}}";
-      if (seg.kind === "file") return "{{TARGET}}";
+      if (seg.kind === "file") return "{{FILE_PATH}}";
       return "{{TARGET}}";
     }
     if (seg.type === "filled") {
@@ -493,7 +493,7 @@ export default function PromptComposerV4() {
   const loadPreset = (p) => {
     setPrompt(p.template); setPopover(null); setSelectingFor(null);
     // Auto-switch to visual if preset has tokens
-    if (p.template.includes("{{FIGMA_LINK}}")||p.template.includes("{{TARGET}}")||p.template.includes("{{TARGET}}")) setEditorMode("visual");
+    if (p.template.includes("{{FIGMA_LINK}}")||p.template.includes("{{FILE_PATH}}")||p.template.includes("{{TARGET}}")) setEditorMode("visual");
     showToast(`Loaded "${p.label}"`);
   };
 
@@ -1205,7 +1205,7 @@ export default function PromptComposerV4() {
                       animation:"fadeIn 0.15s ease",
                     }}>
                       <div style={{ fontSize:11, fontWeight:600, marginBottom:4, color:accent }}>
-                        {popover.kind==="figma"?"◈":"⊡"} {popover.label}
+                        {popover.kind==="figma"?"◈":popover.kind==="target"?"⊕":"⊡"} {popover.label}
                       </div>
                       <div style={{ fontSize:9, color:"#555", ...mono, marginBottom:12, wordBreak:"break-all", lineHeight:1.5 }}>{popover.value}</div>
                       <div style={{ display:"flex", flexDirection:"column", gap:5 }}>

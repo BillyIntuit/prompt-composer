@@ -574,7 +574,7 @@ export default function PromptComposerV4() {
   const S = {
     card: { background:"#131313", border:"1px solid #1C1C1C", borderRadius:10, padding:"12px 14px", marginBottom:6, transition:"border-color 0.2s", cursor:"pointer" },
     chip: { background:"#1A1A1A", border:"1px solid #222", borderRadius:5, padding:"3px 8px", fontSize:10, cursor:"pointer", ...mono, transition:"all 0.15s" },
-    input: { width:"100%", background:"#161616", border:"1px solid #222", borderRadius:7, padding:"8px 11px", color:"#E8E4DF", fontSize:12, fontFamily:"'DM Sans',sans-serif" },
+    input: { width:"100%", background:"#161616", border:"1px solid #222", borderRadius:7, padding:"8px 11px", color:"#E8E4DF", fontSize:12, fontFamily:"'Avenir Next',system-ui,sans-serif" },
     sBtn: (a) => ({ background:a?accent:"#1A1A1A", color:a?"#0A0A0A":"#888", border:`1px solid ${a?accent:"#2A2A2A"}`, borderRadius:6, padding:"5px 12px", fontSize:11, cursor:"pointer", ...mono, fontWeight:a?600:400, transition:"all 0.15s" }),
   };
 
@@ -582,7 +582,7 @@ export default function PromptComposerV4() {
      RENDER
      ═══════════════════════════════════════════════ */
   return (
-    <div style={{ minHeight:"100vh", background:"#0A0A0A", color:"#E8E4DF", fontFamily:"'DM Sans',system-ui,sans-serif" }}>
+    <div style={{ minHeight:"100vh", background:"#0A0A0A", color:"#E8E4DF", fontFamily:"'Avenir Next',system-ui,sans-serif" }}>
       <style>{`
         @keyframes fadeIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
         @keyframes slideUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
@@ -1125,7 +1125,7 @@ export default function PromptComposerV4() {
               {(editorMode === "raw" || !segments.some(s => s.type!=="text")) && (
                 <textarea value={prompt} onChange={e => { setPrompt(e.target.value); setPopover(null); }}
                   placeholder={`Pick a preset, or start typing…\n\nType {{FIGMA_LINK}} or {{TARGET}} anywhere and they'll become clickable chips in Visual mode.\n\nEvery preset follows:\n  1. Screenshot Figma design\n  2. Read exact values via MCP\n  3. Apply changes\n  4. Self-check with implementation screenshot`}
-                  style={{ flex:1, background:"transparent", border:"none", padding:"16px 18px", color:"#E8E4DF", fontSize:13, fontFamily:"'DM Sans',sans-serif", lineHeight:1.8, resize:"none" }} />
+                  style={{ flex:1, background:"transparent", border:"none", padding:"16px 18px", color:"#E8E4DF", fontSize:13, fontFamily:"'Avenir Next',system-ui,sans-serif", lineHeight:1.8, resize:"none" }} />
               )}
 
               {/* VISUAL MODE — editable text segments + interactive chips */}
@@ -1408,7 +1408,7 @@ export default function PromptComposerV4() {
                   style={{
                     width:"100%", background:"#111", border:"1px solid #222", borderRadius:10,
                     padding:"13px 16px 13px 40px", color:"#E8E4DF", fontSize:14,
-                    fontFamily:"'DM Sans',sans-serif",
+                    fontFamily:"'Avenir Next',system-ui,sans-serif",
                     transition:"border-color 0.2s",
                   }}
                   onFocus={e => e.currentTarget.style.borderColor = accent}

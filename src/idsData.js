@@ -5,7 +5,7 @@
 export const IDS_LINK_LIBRARY = {
   foundations: {
     label: "IDS Foundations",
-    icon: "◆",
+    icon: "diamond",
     color: "#C4F464",
     groups: {
       color: {
@@ -51,7 +51,7 @@ export const IDS_LINK_LIBRARY = {
 
   components: {
     label: "IDS Components",
-    icon: "❖",
+    icon: "integration-puzzle",
     color: "#64B5F6",
     groups: {
       buttons: {
@@ -135,7 +135,7 @@ export const IDS_LINK_LIBRARY = {
 
   dataviz: {
     label: "Butterscotch Data Viz",
-    icon: "◈",
+    icon: "chart-pie",
     color: "#F4A024",
     groups: {
       grid: {
@@ -275,7 +275,7 @@ for (const [grpKey, grp] of Object.entries(IDS_LINK_LIBRARY.components.groups)) 
     IDS_COMPONENT_PRESETS.push({
       id: `ids-preset-${link.id}`,
       label: link.label,
-      icon: "❖",
+      icon: "integration-puzzle",
       group: grp.label,
       figmaUrl: link.url,
       template: `Restyle the ${link.label} component to match IDS specs.
@@ -355,7 +355,7 @@ for (const widgetKey of WIDGET_TYPES) {
     DATAVIZ_PRESETS.push({
       id: `dviz-${sizeLink.id}`,
       label: `${grp.label}${gridSize ? ` — ${gridSize}` : ""}`,
-      icon: "◈",
+      icon: "chart-pie",
       group: grp.label,
       figmaUrl: sizeLink.url,
       featUrl: featLink ? featLink.url : null,
@@ -459,7 +459,7 @@ for (const cc of crossCutting) {
   DATAVIZ_PRESETS.push({
     id: cc.id,
     label: cc.label,
-    icon: "◈",
+    icon: "chart-pie",
     group: "Cross-cutting",
     figmaUrl: cc.url,
     template: `${cc.desc}

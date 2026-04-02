@@ -294,7 +294,8 @@ Use Figma MCP get_design_context to extract:
 - Every interactive state: default, hover, focus, active, disabled, error
 
 STEP 3 — APPLY:
-Update: {{FILE_PATH}}
+Target: {{TARGET}}
+(This can be a file path like src/components/Button.tsx OR a description like "the primary button component" — find the relevant files and update them.)
 Use ONLY IDS tokens — no hardcoded values.
 
 STEP 4 — SELF-CHECK:
@@ -352,7 +353,8 @@ Use Figma MCP get_design_context on ${featLink ? "both frames" : "the frame"}. E
 - Color tokens from IDS data viz palette
 
 STEP ${featLink ? "4" : "3"} — APPLY:
-Update: {{FILE_PATH}}
+Target: {{TARGET}}
+(This can be a file path like src/components/Button.tsx OR a description like "the primary button component" — find the relevant files and update them.)
 Reference the IDS data viz color tokens. Match the grid sizing spec exactly.
 
 STEP ${featLink ? "5" : "4"} — SELF-CHECK:
@@ -407,7 +409,8 @@ STEP 2 — READ SPEC:
 Use Figma MCP get_design_context to extract all relevant properties.
 
 STEP 3 — APPLY:
-Update: {{FILE_PATH}}
+Target: {{TARGET}}
+(This can be a file path like src/components/Button.tsx OR a description like "the primary button component" — find the relevant files and update them.)
 Use IDS tokens for all values.
 
 STEP 4 — SELF-CHECK:

@@ -1260,7 +1260,7 @@ export default function PromptComposerV4() {
                   { l:"+ Scope: element", t:"\n\nSCOPE: Only change the following specific element — do not touch anything else:\n[Describe the exact element here]" },
                   { l:"+ Scope: state", t:"\n\nSCOPE: Only fix the following state — all other states should remain unchanged:\n[e.g., hover state, focus state, disabled state]" },
                 ].map(s => (
-                  <button key={s.l} onClick={() => { setPrompt(p => p + s.t); if (editorMode==="visual") setEditorMode("raw"); }} style={{ ...S.chip, color:"#555" }}
+                  <button key={s.l} onClick={() => { setPrompt(p => p + s.t); }} style={{ ...S.chip, color:"#555" }}
                     onMouseEnter={e => e.currentTarget.style.color=accent}
                     onMouseLeave={e => e.currentTarget.style.color="#555"}>{s.l}</button>
                 ))}

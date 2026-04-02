@@ -2,6 +2,7 @@
   "name": "prompt-composer",
   "version": "1.0.0",
   "description": "Desktop prompt composition workspace for Claude Code",
+  "author": "IES Design Team",
   "main": "electron/main.js",
   "scripts": {
     "dev": "vite",

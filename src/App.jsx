@@ -19,7 +19,8 @@ Use Figma MCP get_design_context on the same frame to extract:
 - Container widths and constraints
 
 STEP 3 — APPLY:
-Update the component at: {{FILE_PATH}}
+Target: {{TARGET}}
+(This can be a file path like src/components/Button.tsx OR a description like "the primary button component" — find the relevant files and update them.)
 Match every spatial value from the design context.
 
 STEP 4 — SELF-CHECK:
@@ -40,7 +41,8 @@ Use Figma MCP get_design_context to extract for every text element:
 - Text color and opacity
 
 STEP 3 — APPLY:
-Update: {{FILE_PATH}}
+Target: {{TARGET}}
+(This can be a file path like src/components/Button.tsx OR a description like "the primary button component" — find the relevant files and update them.)
 
 STEP 4 — SELF-CHECK:
 Screenshot implementation and compare text rendering against Figma.
@@ -57,7 +59,8 @@ STEP 2 — READ COLORS:
 Use get_design_context to extract all colors: backgrounds, text, borders, shadows.
 
 STEP 3 — APPLY:
-Update: {{FILE_PATH}}
+Target: {{TARGET}}
+(This can be a file path like src/components/Button.tsx OR a description like "the primary button component" — find the relevant files and update them.)
 
 STEP 4 — SELF-CHECK:
 Screenshot and compare. Only change colors.` },
@@ -72,7 +75,8 @@ STEP 2 — READ FULL SPEC:
 Use get_design_context for dimensions, padding, radius, colors, typography, shadows, and all states.
 
 STEP 3 — APPLY:
-Update: {{FILE_PATH}}
+Target: {{TARGET}}
+(This can be a file path like src/components/Button.tsx OR a description like "the primary button component" — find the relevant files and update them.)
 Match every visual property. Use design tokens where available.
 
 STEP 4 — SELF-CHECK:
@@ -88,7 +92,9 @@ Use Figma MCP get_screenshot:
 
 STEP 2 — READ mobile specs via get_design_context.
 
-STEP 3 — APPLY to: {{FILE_PATH}}
+STEP 3 — APPLY:
+Target: {{TARGET}}
+(This can be a file path like src/components/Button.tsx OR a description like "the primary button component" — find the relevant files and update them.)
 Fix breakpoints at 768px and 375px. Touch targets ≥44px. No overflow.
 
 STEP 4 — SELF-CHECK at 375px and 768px widths.` },
@@ -96,7 +102,8 @@ STEP 4 — SELF-CHECK at 375px and 768px widths.` },
     template:`Add transitions and animations.
 
 REFERENCE: {{FIGMA_LINK}}
-FILE: {{FILE_PATH}}
+Target: {{TARGET}}
+(This can be a file path like src/components/Button.tsx OR a description like "the primary button component" — find the relevant files and update them.)
 
 Use transform/opacity only. Duration 150-300ms. Add prefers-reduced-motion.` },
   { id:"visual-qa", label:"Visual QA Audit", icon:"⊿", category:"Review", phase:"review", custom:false,
@@ -115,7 +122,7 @@ Sort by severity: Critical → Moderate → Minor.` },
     template:`Previous changes need specific corrections.
 
 DESIGN: {{FIGMA_LINK}}
-FILE: {{FILE_PATH}}
+Target: {{TARGET}}
 
 WHAT'S STILL WRONG:
 [Describe specific issues here]
@@ -125,7 +132,7 @@ Only touch the specific things listed.` },
   { id:"token-audit", label:"Token Audit", icon:"⚑", category:"Review", phase:"review", custom:false,
     template:`Audit for hardcoded values that should use design tokens.
 
-FILE: {{FILE_PATH}}
+Target: {{TARGET}}
 
 Flag: hardcoded colors, spacing, fonts, radius, shadows.
 Report: | Line | Current | Recommended Token | Confidence |
@@ -134,19 +141,19 @@ Ask before replacing.` },
 
 const IES_STEPS = [
   { id:"ies-1", label:"1. Tokens & Colors", icon:"◉", cat:"DS",
-    template:`Adopt IES design tokens.\n\nSCREENSHOT token reference: use get_screenshot on:\n{{FIGMA_LINK}}\n\nEXTRACT all color tokens via get_design_context: primitives + semantic aliases.\n\nCREATE/UPDATE token file: {{FILE_PATH}}\n\nREPLACE all hardcoded colors codebase-wide with tokens.\n\nSELF-CHECK: screenshot 3 key screens before/after.` },
+    template:`Adopt IES design tokens.\n\nSCREENSHOT token reference: use get_screenshot on:\n{{FIGMA_LINK}}\n\nEXTRACT all color tokens via get_design_context: primitives + semantic aliases.\n\nCREATE/UPDATE token file: {{TARGET}}\n\nREPLACE all hardcoded colors codebase-wide with tokens.\n\nSELF-CHECK: screenshot 3 key screens before/after.` },
   { id:"ies-2", label:"2. Typography Scale", icon:"Aa", cat:"DS",
-    template:`Adopt IES type scale.\n\nSCREENSHOT: {{FIGMA_LINK}}\nREAD via get_design_context: families, weights, sizes, line-heights, letter-spacing.\n\nSET UP in: {{FILE_PATH}}\nAdd @font-face, create type tokens, map semantic roles.\n\nAPPLY across codebase. Check for overflow/truncation.\nSELF-CHECK: screenshot key pages.` },
+    template:`Adopt IES type scale.\n\nSCREENSHOT: {{FIGMA_LINK}}\nREAD via get_design_context: families, weights, sizes, line-heights, letter-spacing.\n\nSET UP in: {{TARGET}}\nAdd @font-face, create type tokens, map semantic roles.\n\nAPPLY across codebase. Check for overflow/truncation.\nSELF-CHECK: screenshot key pages.` },
   { id:"ies-3", label:"3. Spacing & Radius", icon:"⤢", cat:"DS",
-    template:`Adopt IES spacing, radius, elevation.\n\nREFERENCE: {{FIGMA_LINK}}\nTOKEN FILE: {{FILE_PATH}}\n\nExtract spacing scale, radius scale, elevation scale.\nCreate tokens. Replace all hardcoded values.\nFlag anything that doesn't map cleanly.\n\nSELF-CHECK: screenshot cards, buttons, inputs.` },
+    template:`Adopt IES spacing, radius, elevation.\n\nREFERENCE: {{FIGMA_LINK}}\nTOKEN FILE: {{TARGET}}\n\nExtract spacing scale, radius scale, elevation scale.\nCreate tokens. Replace all hardcoded values.\nFlag anything that doesn't map cleanly.\n\nSELF-CHECK: screenshot cards, buttons, inputs.` },
   { id:"ies-4", label:"4. Component — [Name]", icon:"❖", cat:"DS",
-    template:`Restyle ONE component to IES specs. Run per-component.\n\nCOMPONENT: [Button / Input / Card / etc.]\n\nSCREENSHOT: {{FIGMA_LINK}}\nREAD full spec via get_design_context.\n\nRESTYLE: {{FILE_PATH}}\nUse ONLY IES tokens. Cover every state.\n\nSELF-CHECK: screenshot all states and compare.` },
+    template:`Restyle ONE component to IES specs. Run per-component.\n\nCOMPONENT: [Button / Input / Card / etc.]\n\nSCREENSHOT: {{FIGMA_LINK}}\nREAD full spec via get_design_context.\n\nRESTYLE: {{TARGET}}\nUse ONLY IES tokens. Cover every state.\n\nSELF-CHECK: screenshot all states and compare.` },
   { id:"ies-5a", label:"5a. Icons — Inventory", icon:"✦", cat:"DS",
     template:`Scan IES icon library — DO NOT change anything.\n\nSCREENSHOT icon frame: {{FIGMA_LINK}}\nENUMERATE via get_design_context: names, sizes, variants.\n\nCROSS-REFERENCE with codebase usage.\nREPORT: available, used, matched, missing.` },
   { id:"ies-5b", label:"5b. Icons — Export", icon:"✦", cat:"DS",
-    template:`Export IES icons and set up icon system.\n\nFIGMA FRAME: {{FIGMA_LINK}}\nLOCAL DIR: {{FILE_PATH}}\n\nExport SVGs via Figma MCP. Save as icon-name.svg.\nCreate Icon component (sizes: 16,20,24,32; currentColor).\nReplace all existing icon implementations.\n\nSELF-CHECK: screenshot page with icons.` },
+    template:`Export IES icons and set up icon system.\n\nFIGMA FRAME: {{FIGMA_LINK}}\nLOCAL DIR: {{TARGET}}\n\nExport SVGs via Figma MCP. Save as icon-name.svg.\nCreate Icon component (sizes: 16,20,24,32; currentColor).\nReplace all existing icon implementations.\n\nSELF-CHECK: screenshot page with icons.` },
   { id:"ies-6", label:"6. Motion System", icon:"◎", cat:"DS",
-    template:`Adopt IES motion.\n\nREFERENCE: {{FIGMA_LINK}}\nTOKEN FILE: {{FILE_PATH}}\n\nExtract durations + easings. Create motion tokens.\nApply to all interactive elements.\nAdd prefers-reduced-motion.\n\nSELF-CHECK: interact with every animated element.` },
+    template:`Adopt IES motion.\n\nREFERENCE: {{FIGMA_LINK}}\nTOKEN FILE: {{TARGET}}\n\nExtract durations + easings. Create motion tokens.\nApply to all interactive elements.\nAdd prefers-reduced-motion.\n\nSELF-CHECK: interact with every animated element.` },
   { id:"ies-7", label:"7. Final Audit", icon:"⊿", cat:"DS",
     template:`Full DS compliance audit.\n\nREFERENCE: {{FIGMA_LINK}}\n\nScreenshot every screen vs Figma.\nSearch for hardcoded values.\nVerify component states.\nCheck a11y: contrast, focus, touch targets.\n\nREPORT only — do NOT fix.` },
 ];
@@ -176,7 +183,7 @@ function parsePrompt(text) {
   const parts = text.split(ANY_TOKEN_RE).filter(Boolean);
   return parts.map((part, i) => {
     if (part === "{{FIGMA_LINK}}") return { type:"placeholder", kind:"figma", key:i };
-    if (part === "{{FILE_PATH}}") return { type:"placeholder", kind:"file", key:i };
+    if (part === "{{TARGET}}") return { type:"placeholder", kind:"file", key:i };
     if (part === "{{TARGET}}") return { type:"placeholder", kind:"target", key:i };
     const fm = part.match(/^\{\{FIGMA_FILLED:([^|]*)\|([^}]*)\}\}$/);
     if (fm) return { type:"filled", kind:"figma", label:fm[1], value:fm[2], key:i };
@@ -210,7 +217,7 @@ function rebuildPromptWithTextChange(segments, segIdx, newText) {
     if (seg.type === "text") return seg.value;
     if (seg.type === "placeholder") {
       if (seg.kind === "figma") return "{{FIGMA_LINK}}";
-      if (seg.kind === "file") return "{{FILE_PATH}}";
+      if (seg.kind === "file") return "{{TARGET}}";
       return "{{TARGET}}";
     }
     if (seg.type === "filled") {
@@ -247,7 +254,7 @@ export default function PromptComposerV4() {
   const [addingLink, setAddingLink] = useState(false);
   const [newLink, setNewLink] = useState({ url:"", label:"" });
   const [addingFile, setAddingFile] = useState(false);
-  const [newFile, setNewFile] = useState({ path:"", label:"" });
+  const [newFile, setNewFile] = useState({ path:"", label:"", isDescription:false });
 
   // DS Pack
   const [showDS, setShowDS] = useState(false);
@@ -473,7 +480,7 @@ export default function PromptComposerV4() {
   };
   const handleUnlink = () => {
     if (!popover) return;
-    const placeholderMap = { figma: "{{FIGMA_LINK}}", file: "{{FILE_PATH}}", target: "{{TARGET}}" };
+    const placeholderMap = { figma: "{{FIGMA_LINK}}", file: "{{TARGET}}", target: "{{TARGET}}" };
     setPrompt(replaceNthToken(prompt, popover.tokenIndex, placeholderMap[popover.kind]));
     setPopover(null);
     showToast("Unlinked");
@@ -484,7 +491,7 @@ export default function PromptComposerV4() {
   const loadPreset = (p) => {
     setPrompt(p.template); setPopover(null); setSelectingFor(null);
     // Auto-switch to visual if preset has tokens
-    if (p.template.includes("{{FIGMA_LINK}}")||p.template.includes("{{FILE_PATH}}")||p.template.includes("{{TARGET}}")) setEditorMode("visual");
+    if (p.template.includes("{{FIGMA_LINK}}")||p.template.includes("{{TARGET}}")||p.template.includes("{{TARGET}}")) setEditorMode("visual");
     showToast(`Loaded "${p.label}"`);
   };
 
@@ -507,7 +514,7 @@ export default function PromptComposerV4() {
 
   // ── Add figma/file ──
   const addFigma = () => { if (!newLink.url.trim()) return; setFigmaLinks(p => [{ id:""+Date.now(), url:newLink.url.trim(), label:newLink.label.trim()||"Untitled", lastUsed:Date.now() }, ...p]); setNewLink({url:"",label:""}); setAddingLink(false); showToast("Saved"); };
-  const addFileItem = () => { if (!newFile.path.trim()) return; setFilePaths(p => [{ id:""+Date.now(), path:newFile.path.trim(), label:newFile.label.trim()||newFile.path.split("/").pop() }, ...p]); setNewFile({path:"",label:""}); setAddingFile(false); showToast("Saved"); };
+  const addFileItem = () => { if (!newFile.path.trim()) return; const val = newFile.path.trim(); const isDes = newFile.isDescription; setFilePaths(p => [{ id:""+Date.now(), path:val, label:newFile.label.trim()||(isDes ? val : val.split("/").pop()), isDescription:isDes }, ...p]); setNewFile({path:"",label:"",isDescription:false}); setAddingFile(false); showToast("Saved"); };
 
   // ── Filters ──
   const allCats = ["All", ...new Set(presets.map(p => p.category))];
@@ -720,13 +727,13 @@ export default function PromptComposerV4() {
 
           {/* Tabs */}
           <div style={{ display:"flex", borderBottom:"1px solid #151515" }}>
-            {[{ id:"presets", icon:"⚡", label:"Presets" }, { id:"figma", icon:"◈", label:"Figma" }, { id:"files", icon:"⊡", label:"Files" }].map(t => (
+            {[{ id:"presets", icon:"⚡", label:"Presets" }, { id:"figma", icon:"◈", label:"Figma" }, { id:"files", icon:"⊕", label:"Targets" }].map(t => (
               <button key={t.id} onClick={() => { setActivePanel(t.id); setShowCreate(false); }} style={{
                 flex:1, padding:"9px 6px", background:activePanel===t.id?"#111":"transparent",
-                border:"none", borderBottom:`2px solid ${activePanel===t.id ? (selectingFor && ((selectingFor.kind==="figma"&&t.id==="figma")||(selectingFor.kind==="file"&&t.id==="files")) ? accent : accent) : "transparent"}`,
-                color: selectingFor && ((selectingFor.kind==="figma"&&t.id==="figma")||(selectingFor.kind==="file"&&t.id==="files")) ? accent : activePanel===t.id?"#E8E4DF":"#555",
+                border:"none", borderBottom:`2px solid ${activePanel===t.id ? (selectingFor && ((selectingFor.kind==="figma"&&t.id==="figma")||((selectingFor.kind==="file"||selectingFor.kind==="target")&&t.id==="files")) ? accent : accent) : "transparent"}`,
+                color: selectingFor && ((selectingFor.kind==="figma"&&t.id==="figma")||((selectingFor.kind==="file"||selectingFor.kind==="target")&&t.id==="files")) ? accent : activePanel===t.id?"#E8E4DF":"#555",
                 fontSize:11, cursor:"pointer", fontWeight:500, display:"flex", alignItems:"center", justifyContent:"center", gap:4,
-                animation: selectingFor && ((selectingFor.kind==="figma"&&t.id==="figma")||(selectingFor.kind==="file"&&t.id==="files")) ? "selectGlow 1.5s ease infinite" : "none",
+                animation: selectingFor && ((selectingFor.kind==="figma"&&t.id==="figma")||((selectingFor.kind==="file"||selectingFor.kind==="target")&&t.id==="files")) ? "selectGlow 1.5s ease infinite" : "none",
               }}><span style={{ fontSize:11 }}>{t.icon}</span>{t.label}</button>
             ))}
           </div>
@@ -786,7 +793,7 @@ export default function PromptComposerV4() {
                 <div style={{ display:"flex", flexWrap:"wrap", gap:3, marginBottom:10 }}>
                   {CAT_OPTS.map(c => <button key={c} onClick={() => setDraft(d => ({...d,category:c}))} style={{ padding:"3px 8px",borderRadius:4,fontSize:9,cursor:"pointer",...mono,background:draft.category===c?accent:"#171717",color:draft.category===c?"#0A0A0A":"#555",border:`1px solid ${draft.category===c?accent:"#1C1C1C"}` }}>{c}</button>)}
                 </div>
-                <div style={{ fontSize:9, color:"#444", ...mono, marginBottom:4 }}>TEMPLATE <span style={{ color:"#333" }}>— use {"{{FIGMA_LINK}}"} {"{{FILE_PATH}}"}</span></div>
+                <div style={{ fontSize:9, color:"#444", ...mono, marginBottom:4 }}>TEMPLATE <span style={{ color:"#333" }}>— use {"{{FIGMA_LINK}}"} {"{{TARGET}}"}</span></div>
                 <textarea value={draft.template} onChange={e => setDraft(d => ({...d,template:e.target.value}))} placeholder="STEP 1 — SCREENSHOT:\n{{FIGMA_LINK}}..." style={{ ...S.input, height:160, ...mono, fontSize:10, lineHeight:1.7, resize:"vertical", marginBottom:10 }} />
                 <div style={{ display:"flex", gap:6 }}>
                   <button onClick={savePreset} disabled={!draft.label.trim()||!draft.template.trim()} style={{ flex:1, background:draft.label.trim()&&draft.template.trim()?accent:"#1A1A1A", color:draft.label.trim()&&draft.template.trim()?"#0A0A0A":"#444", border:"none", borderRadius:7, padding:9, fontSize:11, fontWeight:600, cursor:"pointer" }}>{editingId?"Save":"Create"}</button>
@@ -960,30 +967,41 @@ export default function PromptComposerV4() {
             {activePanel==="files" && (
               <div>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
-                  <span style={{ fontSize:9, color:"#333", ...mono }}>{filePaths.length} paths</span>
+                  <span style={{ fontSize:9, color:"#333", ...mono }}>{filePaths.length} targets</span>
                   {!selectingFor && <button onClick={() => setAddingFile(!addingFile)} style={S.sBtn(addingFile)}>{addingFile?"Cancel":"+ Add"}</button>}
                 </div>
                 {addingFile && !selectingFor && (
                   <div style={{ ...S.card, cursor:"default", animation:"slideUp 0.1s ease", padding:12, marginBottom:10 }}>
-                    <input value={newFile.label} onChange={e => setNewFile(f => ({...f,label:e.target.value}))} placeholder="Label" style={{ ...S.input, marginBottom:6 }} />
-                    <input value={newFile.path} onChange={e => setNewFile(f => ({...f,path:e.target.value}))} placeholder="src/components/Button.tsx" style={{ ...S.input, fontSize:10, ...mono, marginBottom:7 }} onKeyDown={e => e.key==="Enter"&&addFileItem()} />
+                    <div style={{ display:"flex", gap:4, marginBottom:8 }}>
+                      {[{ l:"File path", v:false }, { l:"Description", v:true }].map(opt => (
+                        <button key={opt.l} onClick={() => setNewFile(f => ({...f,isDescription:opt.v}))}
+                          style={{ ...S.chip, flex:1, textAlign:"center", color: newFile.isDescription===opt.v ? accent : "#555", borderColor: newFile.isDescription===opt.v ? accent : "#1C1C1C" }}>
+                          {opt.v?"💬":"⊡"} {opt.l}
+                        </button>
+                      ))}
+                    </div>
+                    <input value={newFile.label} onChange={e => setNewFile(f => ({...f,label:e.target.value}))} placeholder="Label (optional)" style={{ ...S.input, marginBottom:6 }} />
+                    <input value={newFile.path} onChange={e => setNewFile(f => ({...f,path:e.target.value}))}
+                      placeholder={newFile.isDescription ? "e.g. the primary button component" : "e.g. src/components/Button.tsx"}
+                      style={{ ...S.input, fontSize:10, ...(newFile.isDescription ? {} : mono), marginBottom:7 }}
+                      onKeyDown={e => e.key==="Enter"&&addFileItem()} />
                     <button onClick={addFileItem} style={{ width:"100%", background:accent, color:"#0A0A0A", border:"none", borderRadius:6, padding:7, fontSize:11, fontWeight:600, cursor:"pointer" }}>Save</button>
                   </div>
                 )}
                 {filePaths.map(f => (
                   <div key={f.id} style={{ ...S.card, cursor:selectingFor?"pointer":"default", borderColor: selectingFor ? "#2A2A2A" : "#1C1C1C" }}
-                    onClick={() => selectingFor && selectingFor.kind==="file" ? handleSelectItem("file", f.label, f.path, f.id) : null}
-                    onMouseEnter={e => e.currentTarget.style.borderColor = selectingFor&&selectingFor.kind==="file" ? accent : "#2A2A2A"}
+                    onClick={() => selectingFor && (selectingFor.kind==="file"||selectingFor.kind==="target") ? handleSelectItem(selectingFor.kind, f.label, f.path, f.id) : null}
+                    onMouseEnter={e => e.currentTarget.style.borderColor = selectingFor&&(selectingFor.kind==="file"||selectingFor.kind==="target") ? accent : "#2A2A2A"}
                     onMouseLeave={e => e.currentTarget.style.borderColor = selectingFor ? "#2A2A2A" : "#1C1C1C"}>
                     <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:3 }}>
-                      <span style={{ fontSize:11, fontWeight:500 }}>⊡ {f.label}</span>
-                      {selectingFor && selectingFor.kind==="file" ? (
+                      <span style={{ fontSize:11, fontWeight:500 }}>{f.isDescription?"💬":"⊡"} {f.label}</span>
+                      {selectingFor && (selectingFor.kind==="file"||selectingFor.kind==="target") ? (
                         <span style={{ fontSize:10, color:accent, ...mono }}>← Use this</span>
                       ) : (
                         <button onClick={(e) => { e.stopPropagation(); setFilePaths(p => p.filter(x => x.id!==f.id)); }} style={{ background:"none",border:"none",color:"#2A2A2A",cursor:"pointer",fontSize:12 }}>×</button>
                       )}
                     </div>
-                    <div style={{ fontSize:10, color:accent, ...mono, opacity:.5, marginBottom: selectingFor ? 0 : 8 }}>{f.path}</div>
+                    <div style={{ fontSize:10, color:f.isDescription?"#777":accent, ...(f.isDescription?{}:mono), opacity:f.isDescription?1:.5, marginBottom: selectingFor ? 0 : 8 }}>{f.path}</div>
                     {!selectingFor && (
                       <div style={{ display:"flex", gap:4 }}>
                         <button onClick={() => copy(f.path, f.id)} style={{ flex:1, ...S.chip, color:copiedId===f.id?accent:"#666", textAlign:"center" }}>{copiedId===f.id?"✓":"⎘"} Copy</button>
@@ -1032,7 +1050,7 @@ export default function PromptComposerV4() {
               {/* RAW MODE — always a textarea */}
               {(editorMode === "raw" || !segments.some(s => s.type!=="text")) && (
                 <textarea value={prompt} onChange={e => { setPrompt(e.target.value); setPopover(null); }}
-                  placeholder={`Pick a preset, or start typing…\n\nType {{FIGMA_LINK}} or {{FILE_PATH}} anywhere and they'll become clickable chips in Visual mode.\n\nEvery preset follows:\n  1. Screenshot Figma design\n  2. Read exact values via MCP\n  3. Apply changes\n  4. Self-check with implementation screenshot`}
+                  placeholder={`Pick a preset, or start typing…\n\nType {{FIGMA_LINK}} or {{TARGET}} anywhere and they'll become clickable chips in Visual mode.\n\nEvery preset follows:\n  1. Screenshot Figma design\n  2. Read exact values via MCP\n  3. Apply changes\n  4. Self-check with implementation screenshot`}
                   style={{ flex:1, background:"transparent", border:"none", padding:"16px 18px", color:"#E8E4DF", fontSize:13, fontFamily:"'DM Sans',sans-serif", lineHeight:1.8, resize:"none" }} />
               )}
 
@@ -1161,7 +1179,7 @@ export default function PromptComposerV4() {
                 <span style={{ fontSize:8, color:"#2A2A2A", ...mono }}>Insert:</span>
                 {[
                   { l:"{{FIGMA_LINK}}", t:"{{FIGMA_LINK}}" },
-                  { l:"{{FILE_PATH}}", t:"{{FILE_PATH}}" },
+                  { l:"{{TARGET}}", t:"{{TARGET}}" },
                   { l:"+ Screenshot compare", t:"\n\nScreenshot the implementation and compare side-by-side with the Figma screenshot." },
                   { l:"+ Style-only guard", t:"\n\nDo NOT change functionality — only visual styling." },
                   { l:"+ Token enforcement", t:"\n\nUse ONLY design tokens — no hardcoded values." },
@@ -1215,7 +1233,7 @@ export default function PromptComposerV4() {
           { cat:"presets", title:"Using Presets", items:[
             { q:"What are presets?", a:"Presets are ready-made prompt templates for common design tasks. Instead of writing 'Please look at this Figma design and fix the fonts to match...' from scratch every time, you click 'Fix Typography' and the whole instruction is written for you — with blank spots for your specific Figma link and file.", tags:["preset","template","what"] },
             { q:"What do the green 'Apply' and blue 'Review' labels mean?", a:"Green 'Apply' presets tell Claude Code to make changes — fix colors, match layouts, restyle a component.\n\nBlue 'Review' presets tell Claude Code to look and report without changing anything — like 'Visual QA Audit' which lists every difference between your design and the code.\n\nUse Apply first, then Review to check the work, then 'Targeted Correction' to fix what's still off.", tags:["apply","review","green","blue","phase","type","category"] },
-            { q:"How do I create my own preset?", a:"Click '+ Create' in the Presets panel. You'll fill in:\n\n• Name — what you'll see in the list\n• Icon — pick one from the grid\n• Category — helps with filtering\n• Template — your prompt text\n\nIn the template, type {{FIGMA_LINK}} where you want a Figma link to go, and {{FILE_PATH}} where you want a file path. These become clickable chips when you use the preset.", tags:["create","custom","new preset","make","build","own"] },
+            { q:"How do I create my own preset?", a:"Click '+ Create' in the Presets panel. You'll fill in:\n\n• Name — what you'll see in the list\n• Icon — pick one from the grid\n• Category — helps with filtering\n• Template — your prompt text\n\nIn the template, type {{FIGMA_LINK}} where you want a Figma link to go, and {{TARGET}} where you want a file path. These become clickable chips when you use the preset.", tags:["create","custom","new preset","make","build","own"] },
             { q:"Can I edit or delete a preset?", a:"Only custom presets (ones you created) can be edited or deleted. They show an orange 'custom' badge. Click the preset to load it, and you'll see 'Edit' and 'Delete' buttons below it. Built-in presets can't be changed, but you can create a custom one based on them.", tags:["edit","delete","change","modify","remove","custom"] },
             { q:"What's the 'Targeted Correction' preset for?", a:"This is your most-used preset after the first pass. When Claude Code makes changes but they're not quite right, load 'Targeted Correction', fill in the Figma link and file, then describe specifically what's still wrong. For example: 'The button padding is too large — should be 12px not 20px' or 'The heading color is wrong, it should be darker.' Be specific.", tags:["correction","fix","wrong","still off","not right","adjust","targeted"] },
           ]},
@@ -1235,7 +1253,7 @@ export default function PromptComposerV4() {
           { cat:"editor", title:"Editing Prompts", items:[
             { q:"What's the difference between Visual and Raw mode?", a:"Visual mode shows your prompt with the nice colored chips. You can click into the text between chips and edit normally — type, delete, add new lines.\n\nRaw mode shows the plain text including the tag markup (like {{FIGMA_FILLED:Label|url}}). Use Raw mode when you need to make big structural changes or if the visual editor feels awkward.\n\nBoth modes edit the same prompt — switching between them doesn't lose anything.", tags:["visual","raw","mode","edit","switch","difference","toggle"] },
             { q:"How do I add extra instructions to a preset?", a:"After loading a preset, just click into the text (in Visual mode) or use Raw mode and type wherever you want. Common things to add:\n\n• Specific details: 'The heading should be 24px not 20px'\n• Warnings: 'Don't touch the navigation component'\n• Context: 'This is a dark mode variant'\n\nYou can also use the quick-insert buttons at the bottom of the editor to append common clauses.", tags:["add","extra","more","customize","edit","instructions","text","type"] },
-            { q:"What are the quick-insert buttons at the bottom?", a:"These are one-click snippets that append useful instructions to your prompt:\n\n• {{FIGMA_LINK}} / {{FILE_PATH}} — adds a new placeholder chip\n• Screenshot compare — tells Claude Code to take before/after screenshots\n• Style-only guard — tells Claude Code not to change any behavior, just visuals\n• Token enforcement — tells Claude Code to use design tokens, not hardcoded values\n\nThey save you from typing the same reminders over and over.", tags:["quick insert","buttons","bottom","snippet","append","add","shortcut"] },
+            { q:"What are the quick-insert buttons at the bottom?", a:"These are one-click snippets that append useful instructions to your prompt:\n\n• {{FIGMA_LINK}} / {{TARGET}} — adds a new placeholder chip\n• Screenshot compare — tells Claude Code to take before/after screenshots\n• Style-only guard — tells Claude Code not to change any behavior, just visuals\n• Token enforcement — tells Claude Code to use design tokens, not hardcoded values\n\nThey save you from typing the same reminders over and over.", tags:["quick insert","buttons","bottom","snippet","append","add","shortcut"] },
             { q:"Where does the prompt go after I click 'Copy'?", a:"It goes to your clipboard — the same as Ctrl+C (Cmd+C). Then you:\n\n1. Switch to your terminal where Claude Code is running\n2. Click in the input area\n3. Press Ctrl+V (Cmd+V) to paste\n4. Press Enter to send it\n\nThe copied text is clean — all the chip tags are replaced with the actual Figma URLs and file paths.", tags:["copy","clipboard","paste","send","terminal","where","how","after"] },
             { q:"What's the prompt history?", a:"Every time you click 'Copy Prompt', it saves that prompt in a history list at the bottom of the editor. If you need to reuse or tweak a previous prompt, click it to reload it. History shows the last few prompts from this session.", tags:["history","previous","past","old","reuse","again","recent"] },
           ]},

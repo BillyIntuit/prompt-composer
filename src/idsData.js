@@ -359,7 +359,7 @@ for (const widgetKey of WIDGET_TYPES) {
       group: grp.label,
       figmaUrl: sizeLink.url,
       featUrl: featLink ? featLink.url : null,
-      template: `Build/restyle the ${grp.label} data visualization widget${gridSize ? ` at ${gridSize} size` : ""}.
+      template: `Restyle the existing ${grp.label} data visualization widget${gridSize ? ` at ${gridSize} size` : ""} to match Butterscotch spec.
 
 STEP 1 — SCREENSHOT WIDGET SPEC:
 Use Figma MCP get_screenshot on:
@@ -382,11 +382,46 @@ Use Figma MCP get_design_context on ${featLink ? "both frames" : "the frame"}. E
 
 STEP ${featLink ? "4" : "3"} — APPLY:
 Target: {{TARGET}}
-(This can be a file path like src/components/Button.tsx OR a description like "the primary button component" — find the relevant files and update them.)
+(File path or description — Claude Code will find the relevant files.)
 Reference the IDS data viz color tokens. Match the grid sizing spec exactly.
 
 STEP ${featLink ? "5" : "4"} — SELF-CHECK:
 Screenshot the widget with sample data and compare against ${featLink ? "both Figma frames" : "the Figma frame"}.`,
+      createTemplate: `Build a new ${grp.label} data visualization component${gridSize ? ` at ${gridSize} size` : ""} from the Butterscotch spec.
+
+STEP 1 — SCREENSHOT WIDGET SPEC:
+Use Figma MCP get_screenshot on:
+${sizeLink.url}
+${featLink ? `
+STEP 2 — SCREENSHOT FEATURES/BEHAVIOR SPEC:
+Use Figma MCP get_screenshot on:
+${featLink.url}
+` : ""}
+STEP ${featLink ? "3" : "2"} — READ FULL SPEC:
+Use Figma MCP get_design_context on ${featLink ? "both frames" : "the frame"}. Extract:
+- Widget dimensions and grid constraints
+- Chart area sizing and padding
+- Axis styling (labels, ticks, gridlines)
+- Data point styling (colors, radius, bar width)
+- Legend layout and typography
+- Tooltip styling
+- Empty/loading/error states
+- Color tokens from IDS data viz palette
+
+STEP ${featLink ? "4" : "3"} — CREATE:
+Target location: {{TARGET}}
+(Path or description like "in the data-viz components folder".)
+
+Build the widget with:
+- A suitable chart library (Recharts, Victory, or D3 — check what the project already uses)
+- Sample data structure matching the widget type
+- Responsive behavior across grid sizes (1x, 2x, 3x)
+- All IDS data viz color tokens — no hardcoded colors
+- Interactive states: hover, selected, empty, loading, error
+- Tooltip and legend matching the Figma spec
+
+STEP ${featLink ? "5" : "4"} — SELF-CHECK:
+Render the widget with sample data and compare against ${featLink ? "both Figma frames" : "the Figma frame"}.`,
     });
   }
 }
@@ -440,6 +475,22 @@ STEP 3 — APPLY:
 Target: {{TARGET}}
 (This can be a file path like src/components/Button.tsx OR a description like "the primary button component" — find the relevant files and update them.)
 Use IDS tokens for all values.
+
+STEP 4 — SELF-CHECK:
+Screenshot and compare against the Figma spec.`,
+    createTemplate: `Build a new implementation for: ${cc.desc}
+
+STEP 1 — SCREENSHOT:
+Use Figma MCP get_screenshot on:
+${cc.url}
+${cc.url2 ? `\nAlso screenshot validation states:\n${cc.url2}\n` : ""}
+STEP 2 — READ SPEC:
+Use Figma MCP get_design_context to extract all relevant properties.
+
+STEP 3 — CREATE:
+Target location: {{TARGET}}
+(Path or description — Claude Code will find the right location.)
+Build following project patterns. Use IDS tokens for all values.
 
 STEP 4 — SELF-CHECK:
 Screenshot and compare against the Figma spec.`,
